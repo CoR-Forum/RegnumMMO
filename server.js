@@ -248,6 +248,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 // Socket.IO
 const players = {}; // Store connected players: { socketId: { character, position } }
+const userSockets = {}; // userId -> socketId, to enforce one connection per user
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -261,6 +262,17 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.userId);
+
+  // Enforce one connection per user: disconnect existing socket for this user
+  if (userSockets[socket.userId]) {
+    const oldSocketId = userSockets[socket.userId];
+    const oldSocket = io.sockets.sockets.get(oldSocketId);
+    if (oldSocket) {
+      console.log('Disconnecting previous socket for user:', socket.userId);
+      oldSocket.disconnect();
+    }
+  }
+  userSockets[socket.userId] = socket.id;
 
   socket.on('join', (characterId) => {
     // Verify character belongs to user
@@ -304,6 +316,7 @@ io.on('connection', (socket) => {
       delete players[socket.id];
       socket.broadcast.emit('playerLeft', socket.id);
     }
+    delete userSockets[socket.userId];
     console.log('User disconnected:', socket.userId);
   });
 });

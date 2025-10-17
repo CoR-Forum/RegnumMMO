@@ -18,7 +18,7 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H 168.119.196.69 >> ~/.ssh/known_hosts
-        rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@168.119.196.69:/root/docker/regnum-mapgame/
+        rsync -avz --delete --exclude='.env' -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ root@168.119.196.69:/root/docker/regnum-mapgame/
 
     - name: Run deployment commands
       uses: appleboy/ssh-action@v1.0.0

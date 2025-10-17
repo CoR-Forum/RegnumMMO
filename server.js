@@ -283,8 +283,11 @@ app.get('/api/messages', (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 // Socket.IO
-const players = {}; // Store connected players: { socketId: { character, position } }
+const players = {}; // Store connected players: { socketId: { character, position, lastPos, lastTime } }
 const userSockets = {}; // userId -> socketId, to enforce one connection per user
+
+const MAX_SPEED = 150; // units per second
+const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -326,7 +329,7 @@ io.on('connection', (socket) => {
           return;
         }
         const position = posResults[0] || { x: 3063, y: 3095 };
-        players[socket.id] = { character, position };
+        players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now() };
         socket.characterId = characterId;
         socket.emit('joined', { character, position });
         // Broadcast to others
@@ -343,7 +346,29 @@ io.on('connection', (socket) => {
 
   socket.on('move', (newPos) => {
     if (!players[socket.id]) return;
-    players[socket.id].position = newPos;
+
+    // Clamp position to map bounds
+    newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));
+    newPos.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newPos.y));
+
+    const player = players[socket.id];
+    const dist = Math.sqrt((newPos.x - player.lastPos.x) ** 2 + (newPos.y - player.lastPos.y) ** 2);
+    const timeDiff = Date.now() - player.lastTime;
+    const speed = dist / (timeDiff / 1000);
+
+    if (speed > MAX_SPEED) {
+      // Speedhack detected, teleport back
+      socket.emit('teleport', player.lastPos);
+      socket.emit('chatError', 'Speedhack detected! Teleported back.');
+      console.log(`Speedhack detected for user ${socket.userId}: speed ${speed} > ${MAX_SPEED}`);
+      return;
+    }
+
+    // Valid move
+    player.position = newPos;
+    player.lastPos = { ...newPos };
+    player.lastTime = Date.now();
+
     // Update DB
     db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, newPos.x, newPos.y]);
     // Broadcast

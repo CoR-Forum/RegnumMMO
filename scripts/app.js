@@ -8,9 +8,9 @@ class RegnumMap {
   static MAP_SETTINGS = Object.freeze({
     gameDimensions: [6126, 6190],
     imageDimensions: [8862, 8879],
-    initialZoom: 3,
+    initialZoom: 8,
     maxZoom: 9,
-    minZoom: 0,
+    minZoom: 6,
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
       Created by <a href="https://github.com/Joshua2504" target="_blank">Joshua2504</a><br>
@@ -340,6 +340,8 @@ class RegnumMap {
     this.manaText = document.getElementById('mana-text');
     this.staminaFill = document.getElementById('stamina-fill');
     this.staminaText = document.getElementById('stamina-text');
+    this.locationDisplay = document.getElementById('location-display');
+    this.zoomDisplay = document.getElementById('zoom-display');
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
 
     this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
@@ -501,6 +503,14 @@ class RegnumMap {
     this.characterInfo.style.display = 'block';
   }
 
+  updateLocationDisplay(position) {
+    this.locationDisplay.textContent = `Location: X: ${Math.round(position.x)}, Y: ${Math.round(position.y)}`;
+  }
+
+  updateZoomDisplay(zoom) {
+    this.zoomDisplay.textContent = `Zoom: ${zoom}`;
+  }
+
   hideCharacterInfo() {
     this.characterInfo.style.display = 'none';
   }
@@ -553,6 +563,8 @@ class RegnumMap {
       this.currentPlayer = data.character;
       this.addPlayer(this.socket.id, data.character, data.position, true);
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
+      this.updateLocationDisplay(data.position);
+      this.updateZoomDisplay(this.map.getZoom());
       this.initMovement();
       this.loadChatHistory();
     });
@@ -585,6 +597,10 @@ class RegnumMap {
     this.socket.on('chatError', (msg) => {
       this.appendChatMessage(`Error: ${msg}`, 'error');
     });
+
+    this.socket.on('teleport', (position) => {
+      this.moveToPosition(position.x, position.y);
+    });
   }
 
   addPlayer(id, character, position, isCurrent = false) {
@@ -606,9 +622,28 @@ class RegnumMap {
   updatePlayerPosition(id, position) {
     if (this.players[id]) {
       const latLng = this.toLatLng([position.x, position.y]);
-      this.players[id].marker.setLatLng(latLng);
       this.players[id].position = position;
+      if (id === this.socket.id) {
+        this.updateLocationDisplay(position);
+        this.map.panTo(latLng);
+        this.players[id].marker.setLatLng(latLng); // Keep marker centered
+      } else {
+        this.animateMarker(this.players[id].marker, this.players[id].marker.getLatLng(), latLng, 200);
+      }
     }
+  }
+
+  animateMarker(marker, fromLatLng, toLatLng, duration) {
+    const start = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const lat = fromLatLng.lat + (toLatLng.lat - fromLatLng.lat) * progress;
+      const lng = fromLatLng.lng + (toLatLng.lng - fromLatLng.lng) * progress;
+      marker.setLatLng([lat, lng]);
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    animate();
   }
 
   removePlayer(id) {
@@ -629,6 +664,7 @@ class RegnumMap {
     this.map.on('click', (e) => {
       this.moveTo(e.latlng);
     });
+    this.map.on('zoomend', () => this.updateZoomDisplay(this.map.getZoom()));
     this.movementInterval = setInterval(() => this.handleMovement(), 100);
   }
 

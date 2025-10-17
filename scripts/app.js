@@ -135,7 +135,7 @@ class RegnumMap {
   handleLoginBtnClick() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.success) {
-      this.logout();
+      this.checkExistingCharacters();
     } else {
       this.showLoginModal();
     }
@@ -344,14 +344,7 @@ class RegnumMap {
 
     this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
 
-    // Check if character is selected
-    const character = JSON.parse(localStorage.getItem('character'));
-    if (character) {
-      this.updateCharacterInfo(character);
-      if (!this.socket) {
-        this.connectSocket(character.id);
-      }
-    }
+    // No automatic connection; always go through character selection
   }
 
   initRealmSelection() {

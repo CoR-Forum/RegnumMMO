@@ -142,7 +142,6 @@ function initDatabase() {
   db.query(createPlayersTable);
   db.query(createCharactersTable);
   db.query(createPositionsTable);
-  db.query('DROP TABLE IF EXISTS messages');
   db.query(createMessagesTable);
   // Add columns if needed, but since recreated, not necessary
 }

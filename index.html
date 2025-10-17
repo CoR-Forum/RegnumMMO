@@ -354,5 +354,15 @@
       </div>
     </div>
   </div>
+  <div id="chat-panel" style="position: absolute; bottom: 10px; left: 10px; width: 300px; height: 250px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; display: none; z-index: 1000;">
+    <div id="chat-tabs" style="display: flex; margin-bottom: 10px;">
+      <button id="global-tab" style="flex: 1; background: #555; color: white; border: none; padding: 5px;">Global</button>
+      <button id="realm-tab" style="flex: 1; background: #333; color: white; border: none; padding: 5px;">Realm</button>
+      <button id="pm-tab" style="flex: 1; background: #333; color: white; border: none; padding: 5px;">PM</button>
+    </div>
+    <div id="chat-messages" style="height: 150px; overflow-y: auto; background: #222; padding: 5px; border-radius: 3px; margin-bottom: 10px;"></div>
+    <input id="chat-input" type="text" placeholder="Type message..." style="width: 100%; margin-bottom: 5px;">
+    <input id="pm-target" type="text" placeholder="Recipient User ID" style="width: 100%; display: none;">
+  </div>
 </body>
 </html>

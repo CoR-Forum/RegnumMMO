@@ -1,0 +1,42 @@
+# Docker ignore file for Regnum Online Map tile generation
+
+# Node modules and dependencies
+node_modules/
+npm-debug.log*
+
+# Generated tiles (we'll mount this as a volume)
+tiles/
+tiles-bk/
+
+# Development files
+.git/
+.gitignore
+*.log
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+*.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Old backup files
+old/

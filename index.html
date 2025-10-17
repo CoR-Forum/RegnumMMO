@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Regnum.Online Interactive Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Player-made Champions of Regnum interactive online map with crafting bosses, NPCs, forts, castles, cities, and points of interest.">
+  <meta name="keywords" content="Regnum, Online, Maps, Champions of Regnum, Regnum Crafting, Regnum bosses, Regnum NPCs">
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-Zcn6bjR/8RZbLEpLIeOwNtzREBAJnUKESxces60Mpoj+2okopSAcSUIUOseddDm0cxnGQzxIR7vJgsLZbdLE3w==" crossorigin="anonymous">
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body {
+      background: #1a1a1a;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: #1a1a1a;
+    }
+
+    #login-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #login-btn:hover {
+      background: #555;
+    }
+
+    #login-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1001;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #login-modal.show {
+      display: flex;
+    }
+
+    #login-form {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: center;
+    }
+
+    #login-form input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 5px;
+    }
+
+    #login-form button {
+      width: 100%;
+      padding: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #login-form button:hover {
+      background: #45a049;
+    }
+
+    #character-info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      font-size: 12px;
+    }
+
+    .health-bar, .mana-bar, .stamina-bar {
+      width: 200px;
+      height: 20px;
+      background: #333;
+      margin: 5px 0;
+      position: relative;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .health-bar .bar-fill {
+      background: #e74c3c;
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .mana-bar .bar-fill {
+      background: #3498db;
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .stamina-bar .bar-fill {
+      background: #f1c40f;
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .health-bar span, .mana-bar span, .stamina-bar span {
+      position: absolute;
+      top: 0;
+      left: 5px;
+      line-height: 20px;
+      font-weight: bold;
+    }
+
+    #character-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1001;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #character-modal.show {
+      display: flex;
+    }
+
+    #character-form {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      width: 400px;
+      text-align: center;
+    }
+
+    #character-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .character-item {
+      background: #555;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .character-item:hover {
+      background: #777;
+    }
+
+    #character-form select,
+    #character-form input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 5px;
+    }
+
+    #character-form button {
+      width: 100%;
+      padding: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+
+    #character-form button:hover {
+      background: #45a049;
+    }
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin="anonymous" defer></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="scripts/rastercoords.js" defer></script>
+  <script src="scripts/app.js" defer></script>
+</head>
+<body>
+  <div id="map"></div>
+  <button id="login-btn">Login</button>
+  <div id="character-info" style="display: none;">
+    <div id="char-name">Character Name</div>
+    <div class="health-bar">
+      <div class="bar-fill" id="health-fill"></div>
+      <span id="health-text">100/100</span>
+    </div>
+    <div class="mana-bar">
+      <div class="bar-fill" id="mana-fill"></div>
+      <span id="mana-text">100/100</span>
+    </div>
+    <div class="stamina-bar">
+      <div class="bar-fill" id="stamina-fill"></div>
+      <span id="stamina-text">100/100</span>
+    </div>
+  </div>
+  <div id="login-modal">
+    <div id="login-form">
+      <button id="close-modal">&times;</button>
+      <h2>Login</h2>
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button id="submit-login">Login</button>
+      <p id="login-message"></p>
+    </div>
+  </div>
+  <div id="character-modal">
+    <div id="character-form">
+      <button id="close-character-modal">&times;</button>
+      <h2>Select or Create Character</h2>
+      <div id="character-list"></div>
+      <h3>Create New Character</h3>
+      <input type="text" id="char-name-input" placeholder="Character Name" required>
+      <select id="char-realm">
+        <option value="">Select Realm</option>
+      </select>
+      <select id="char-race">
+        <option value="">Select Race</option>
+      </select>
+      <select id="char-class">
+        <option value="">Select Class</option>
+      </select>
+      <button id="create-character">Create Character</button>
+      <p id="character-message"></p>
+    </div>
+  </div>
+</body>
+</html>

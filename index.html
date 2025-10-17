@@ -106,6 +106,21 @@
       font-size: 12px;
     }
 
+    #character-info button {
+      width: 100%;
+      padding: 5px;
+      background: #555;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    #character-info button:hover {
+      background: #777;
+    }
+
     .health-bar, .mana-bar, .stamina-bar {
       width: 200px;
       height: 20px;
@@ -208,6 +223,61 @@
     #character-form button:hover {
       background: #45a049;
     }
+
+    #realm-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1001;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #realm-modal.show {
+      display: flex;
+    }
+
+    #realm-selection {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      width: 600px;
+      text-align: center;
+    }
+
+    #realm-options {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 20px;
+    }
+
+    .realm-option {
+      background: #555;
+      padding: 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 150px;
+      transition: background 0.3s;
+    }
+
+    .realm-option:hover {
+      background: #777;
+    }
+
+    .realm-option h3 {
+      margin: 0 0 10px 0;
+      color: #fff;
+    }
+
+    .realm-option p {
+      margin: 0;
+      color: #ccc;
+      font-size: 14px;
+    }
   </style>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin="anonymous" defer></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -231,6 +301,7 @@
       <div class="bar-fill" id="stamina-fill"></div>
       <span id="stamina-text">100/100</span>
     </div>
+    <button id="switch-character-btn">Switch Character</button>
   </div>
   <div id="login-modal">
     <div id="login-form">
@@ -249,9 +320,10 @@
       <div id="character-list"></div>
       <h3>Create New Character</h3>
       <input type="text" id="char-name-input" placeholder="Character Name" required>
-      <select id="char-realm">
-        <option value="">Select Realm</option>
-      </select>
+      <!-- Realm is chosen earlier (realm modal) or inferred from existing characters.
+           Display the selected realm and keep a hidden input for the form. -->
+      <div id="char-realm-display" style="background:#444; padding:10px; border-radius:5px; color:#fff; margin:10px 0; border: 2px solid #666; font-weight: bold;">Realm: <span id="char-realm-text">Not selected</span></div>
+      <input type="hidden" id="char-realm" value="">
       <select id="char-race">
         <option value="">Select Race</option>
       </select>
@@ -260,6 +332,26 @@
       </select>
       <button id="create-character">Create Character</button>
       <p id="character-message"></p>
+    </div>
+  </div>
+  <div id="realm-modal">
+    <div id="realm-selection">
+      <button id="close-realm-modal">&times;</button>
+      <h2>Select Your Realm</h2>
+      <div id="realm-options">
+        <div class="realm-option" data-realm="Syrtis">
+          <h3>Syrtis</h3>
+          <p>Realm of the Elves</p>
+        </div>
+        <div class="realm-option" data-realm="Ignis">
+          <h3>Ignis</h3>
+          <p>Realm of the Demons</p>
+        </div>
+        <div class="realm-option" data-realm="Alsius">
+          <h3>Alsius</h3>
+          <p>Realm of the Humans</p>
+        </div>
+      </div>
     </div>
   </div>
 </body>

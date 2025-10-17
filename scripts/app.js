@@ -102,12 +102,18 @@ class RegnumMap {
 
     this.initCharacter();
     this.initCharacterInfo();
+    this.initRealmSelection();
   }
 
   checkLoginStatus() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.success) {
       this.updateLoginBtn(true, user.username);
+      // If logged in, check if character is selected; if not, show character selection
+      const character = JSON.parse(localStorage.getItem('character'));
+      if (!character) {
+        this.handlePostLogin();
+      }
     } else {
       this.updateLoginBtn(false);
     }
@@ -121,6 +127,11 @@ class RegnumMap {
       this.loginBtn.textContent = 'Login';
       this.loginBtn.style.background = '#333';
     }
+  }
+
+  handlePostLogin() {
+    // Similar to after login success: check characters and show modal
+    this.checkExistingCharacters();
   }
 
   handleLoginBtnClick() {
@@ -182,9 +193,9 @@ class RegnumMap {
         // Store user data or redirect
         localStorage.setItem('user', JSON.stringify(data));
         this.updateLoginBtn(true, data.username);
-        setTimeout(() => {
+        setTimeout(async () => {
           this.hideLoginModal();
-          this.showCharacterModal();
+          await this.checkExistingCharacters();
         }, 1000);
       } else {
         this.loginMessage.textContent = data.error || 'Login failed.';
@@ -211,7 +222,8 @@ class RegnumMap {
       if (e.target === this.characterModal) this.hideCharacterModal();
     });
     this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
-    this.charRealm.addEventListener('change', () => this.populateRaces());
+    // Realm is selected elsewhere (realm modal) or inferred from existing characters.
+    // When realm is known we will populate races for that realm.
     this.charRace.addEventListener('change', () => this.populateClasses());
 
     this.loadGameData();
@@ -228,13 +240,21 @@ class RegnumMap {
   }
 
   populateSelects() {
-    // Populate realms
-    this.gameData.realms.forEach(realm => {
-      const option = document.createElement('option');
-      option.value = realm;
-      option.textContent = realm;
-      this.charRealm.appendChild(option);
-    });
+    // Realms are presented in the realm selection modal (static in HTML).
+    // We no longer populate a visible realm select in the character modal.
+  }
+
+  populateRacesForRealm(realm) {
+    this.charRace.innerHTML = '<option value="">Select Race</option>';
+    this.charClass.innerHTML = '<option value="">Select Class</option>';
+    if (this.gameData && this.gameData.races[realm]) {
+      this.gameData.races[realm].forEach(race => {
+        const option = document.createElement('option');
+        option.value = race;
+        option.textContent = race;
+        this.charRace.appendChild(option);
+      });
+    }
   }
 
   populateRaces() {
@@ -266,6 +286,17 @@ class RegnumMap {
 
   showCharacterModal() {
     this.loadCharacters();
+    // Sync hidden realm input and visible display
+    const realmInput = document.getElementById('char-realm');
+    const realmText = document.getElementById('char-realm-text');
+    if (this.selectedRealm) {
+      if (realmInput) realmInput.value = this.selectedRealm;
+      if (realmText) realmText.textContent = this.selectedRealm;
+      this.populateRacesForRealm(this.selectedRealm);
+    } else {
+      if (realmInput) realmInput.value = '';
+      if (realmText) realmText.textContent = 'Not selected';
+    }
     this.characterModal.classList.add('show');
   }
 
@@ -280,10 +311,19 @@ class RegnumMap {
       const response = await fetch(`/api/characters?userID=${user.userID}`);
       const characters = await response.json();
       this.characterList.innerHTML = '';
+      // If the user has existing characters, set selectedRealm to the realm of the most recent character (highest id)
+      if (characters.length > 0 && !this.selectedRealm) {
+        characters.sort((a, b) => b.id - a.id); // Sort by id descending
+        this.selectedRealm = characters[0].realm;
+        const realmInput = document.getElementById('char-realm');
+        const realmText = document.getElementById('char-realm-text');
+        if (realmInput) realmInput.value = this.selectedRealm;
+        if (realmText) realmText.textContent = this.selectedRealm;
+      }
       characters.forEach(char => {
         const div = document.createElement('div');
         div.className = 'character-item';
-        div.textContent = `${char.name} - ${char.realm} ${char.race} ${char.class}`;
+        div.textContent = `${char.name} (Lv.${char.level}) - ${char.realm} ${char.race} ${char.class}`;
         div.addEventListener('click', () => this.selectCharacter(char));
         this.characterList.appendChild(div);
       });
@@ -301,16 +341,75 @@ class RegnumMap {
     this.manaText = document.getElementById('mana-text');
     this.staminaFill = document.getElementById('stamina-fill');
     this.staminaText = document.getElementById('stamina-text');
+    this.switchCharacterBtn = document.getElementById('switch-character-btn');
+
+    this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
 
     // Check if character is selected
     const character = JSON.parse(localStorage.getItem('character'));
     if (character) {
       this.updateCharacterInfo(character);
+      if (!this.socket) {
+        this.connectSocket(character.id);
+      }
+    }
+  }
+
+  initRealmSelection() {
+    this.realmModal = document.getElementById('realm-modal');
+    this.closeRealmModal = document.getElementById('close-realm-modal');
+    this.realmOptions = document.querySelectorAll('.realm-option');
+
+    this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
+    this.realmModal.addEventListener('click', (e) => {
+      if (e.target === this.realmModal) this.hideRealmModal();
+    });
+    this.realmOptions.forEach(option => {
+      option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
+    });
+  }
+
+  showRealmModal() {
+    this.realmModal.classList.add('show');
+  }
+
+  hideRealmModal() {
+    this.realmModal.classList.remove('show');
+  }
+
+  selectRealm(realm) {
+    this.selectedRealm = realm;
+    this.hideRealmModal();
+    this.showCharacterModal();
+  }
+
+  async checkExistingCharacters() {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/characters?userID=${user.userID}`);
+      const characters = await response.json();
+      if (characters.length > 0) {
+        // Set selected realm to the realm of the most recent character (highest id) and skip realm modal
+        characters.sort((a, b) => b.id - a.id); // Sort by id descending
+        this.selectedRealm = characters[0].realm;
+        const realmInput = document.getElementById('char-realm');
+        const realmText = document.getElementById('char-realm-text');
+        if (realmInput) realmInput.value = this.selectedRealm;
+        if (realmText) realmText.textContent = this.selectedRealm;
+        this.showCharacterModal();
+      } else {
+        // No characters -> pick realm first
+        this.showRealmModal();
+      }
+    } catch (error) {
+      console.error('Error checking characters:', error);
+      this.showRealmModal(); // Default to realm selection on error
     }
   }
 
   updateCharacterInfo(character) {
-    this.charNameDisplay.textContent = character.name;
+    this.charNameDisplay.textContent = `${character.name} (Lv.${character.level})`;
     const healthPercent = (character.current_health / character.max_health) * 100;
     const manaPercent = (character.current_mana / character.max_mana) * 100;
     const staminaPercent = (character.current_stamina / character.max_stamina) * 100;
@@ -329,6 +428,27 @@ class RegnumMap {
 
   hideCharacterInfo() {
     this.characterInfo.style.display = 'none';
+  }
+
+  switchCharacter() {
+    // Clear selected character
+    localStorage.removeItem('character');
+    this.hideCharacterInfo();
+    // Disconnect socket if connected
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    // Clear players
+    Object.keys(this.players).forEach(id => this.removePlayer(id));
+    this.currentPlayer = null;
+    // Stop movement if running
+    if (this.movementInterval) {
+      clearInterval(this.movementInterval);
+      this.movementInterval = null;
+    }
+    // Show character modal
+    this.showCharacterModal();
   }
 
   selectCharacter(char) {
@@ -356,6 +476,7 @@ class RegnumMap {
       console.log('Joined game', data);
       this.currentPlayer = data.character;
       this.addPlayer(this.socket.id, data.character, data.position, true);
+      this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
       this.initMovement();
     });
 
@@ -382,10 +503,16 @@ class RegnumMap {
 
   addPlayer(id, character, position, isCurrent = false) {
     const latLng = this.toLatLng([position.x, position.y]);
-    const marker = L.marker(latLng).addTo(this.map);
-    marker.bindPopup(`${character.name} (${character.race} ${character.class})`);
+    const userIcon = L.icon({
+      iconUrl: 'https://img.icons8.com/material-outlined/24/user.png',
+      iconSize: [16, 16],
+      iconAnchor: [8, 16]
+    });
+    const marker = L.marker(latLng, { icon: userIcon }).addTo(this.map);
+    marker.bindPopup(`${character.name} (Lv.${character.level}) (${character.race} ${character.class})`);
+    marker.bindTooltip(`${character.name} (Lv.${character.level})`, { permanent: true, direction: 'top', offset: [0, -16] });
     if (isCurrent) {
-      marker.setIcon(L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41] }));
+      marker.setIcon(L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [20, 32], iconAnchor: [10, 32] }));
     }
     this.players[id] = { marker, character, position };
   }
@@ -452,7 +579,8 @@ class RegnumMap {
   async createCharacter() {
     const user = JSON.parse(localStorage.getItem('user'));
     const name = this.charName.value.trim();
-    const realm = this.charRealm.value;
+    // Realm is enforced: prefer selectedRealm, fall back to hidden input
+    const realm = this.selectedRealm || (document.getElementById('char-realm') && document.getElementById('char-realm').value);
     const race = this.charRace.value;
     const cls = this.charClass.value;
     if (!name || !realm || !race || !cls) {
@@ -460,6 +588,19 @@ class RegnumMap {
       return;
     }
     try {
+      // Ensure realm matches existing characters if any
+      try {
+        const checkResp = await fetch(`/api/characters?userID=${user.userID}`);
+        const existing = await checkResp.json();
+        if (existing.length > 0 && existing[0].realm !== realm) {
+          this.characterMessage.textContent = 'You can only create characters in the same realm as your existing characters.';
+          return;
+        }
+      } catch (e) {
+        // ignore and let server validate
+        console.error('Error checking existing characters before create:', e);
+      }
+
       const response = await fetch('/api/characters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

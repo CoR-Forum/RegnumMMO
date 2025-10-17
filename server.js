@@ -106,6 +106,7 @@ function initDatabase() {
     realm VARCHAR(255),
     race VARCHAR(255),
     class VARCHAR(255),
+    level INT DEFAULT 1,
     conc INT DEFAULT 0,
     \`const\` INT DEFAULT 0,
     dex INT DEFAULT 0,
@@ -201,23 +202,34 @@ app.post('/api/characters', (req, res) => {
     return res.status(400).json({ error: 'All fields required' });
   }
 
-  // Get starting attributes
-  const key = `${race} ${charClass}`;
-  const attrs = gameData.startingAttributes[key];
-  if (!attrs) {
-    return res.status(400).json({ error: 'Invalid race-class combination' });
-  }
-
-  const maxHealth = attrs.const * 10;
-  const maxMana = attrs.int * 10;
-  const maxStamina = attrs.str * 10;
-
-  db.query('INSERT INTO characters (user_id, name, realm, race, class, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
+  // Check if user has existing characters and enforce realm consistency
+  db.query('SELECT realm FROM characters WHERE user_id = ?', [userID], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
-    // Insert default position
-    db.query('INSERT INTO positions (character_id, x, y) VALUES (?, 3063, 3095)', [result.insertId], (err2) => {
-      if (err2) console.error('Error inserting position:', err2);
-      res.json({ success: true, id: result.insertId });
+    if (results.length > 0) {
+      const existingRealms = results.map(r => r.realm);
+      if (!existingRealms.includes(realm)) {
+        return res.status(400).json({ error: 'You can only create characters in the same realm as your existing characters.' });
+      }
+    }
+
+    // Get starting attributes
+    const key = `${race} ${charClass}`;
+    const attrs = gameData.startingAttributes[key];
+    if (!attrs) {
+      return res.status(400).json({ error: 'Invalid race-class combination' });
+    }
+
+    const maxHealth = attrs.const * 10;
+    const maxMana = attrs.int * 10;
+    const maxStamina = attrs.str * 10;
+
+    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      // Insert default position
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, 3063, 3095)', [result.insertId], (err2) => {
+        if (err2) console.error('Error inserting position:', err2);
+        res.json({ success: true, id: result.insertId });
+      });
     });
   });
 });
@@ -261,7 +273,8 @@ io.on('connection', (socket) => {
       // Get position
       db.query('SELECT * FROM positions WHERE character_id = ?', [characterId], (err2, posResults) => {
         if (err2) {
-          socket.emit('error', 'Position error');
+          console.error('Position query error:', err2);
+          socket.emit('error', `Position error: ${err2.message}`);
           return;
         }
         const position = posResults[0] || { x: 3063, y: 3095 };

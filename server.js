@@ -286,7 +286,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 const players = {}; // Store connected players: { socketId: { character, position, lastPos, lastTime } }
 const userSockets = {}; // userId -> socketId, to enforce one connection per user
 
-const MAX_SPEED = 150; // units per second
+const MAX_SPEED = 250; // units per second
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 
 io.use((socket, next) => {

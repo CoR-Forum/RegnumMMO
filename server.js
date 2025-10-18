@@ -18,6 +18,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Constants
 const MAX_SPEED = 1000;
+const BASE_SPEED = 0.3;
+const SPRINT_MULTIPLIER = 2;
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 const DEFAULT_POS = { x: 3100, y: 3000 };
 
@@ -343,7 +345,18 @@ io.on('connection', (socket) => {
   }
   userSockets[socket.userId] = socket.id;
 
-  socket.on('join', async (characterId) => {
+  socket.on('keyDown', (data) => {
+    if (!players[socket.id]) return;
+    players[socket.id].moving[data.key] = true;
+  });
+
+  socket.on('keyUp', (data) => {
+    if (!players[socket.id]) return;
+    delete players[socket.id].moving[data.key];
+  });
+
+  socket.on('join', async (data) => {
+    const { characterId } = data;
     if (!(await isSessionValid(socket.sessionId))) {
       socket.emit('logout');
       socket.disconnect();
@@ -358,9 +371,9 @@ io.on('connection', (socket) => {
       const character = results[0];
       const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
       const position = posResults[0] || DEFAULT_POS;
-      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now() };
+      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), moving: {} };
       socket.characterId = characterId;
-      socket.emit('joined', { character, position });
+      socket.emit('joined', { character, position, speed: BASE_SPEED });
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player
@@ -374,7 +387,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('move', async (newPos) => {
+  socket.on('move', async (data) => {
     if (!(await isSessionValid(socket.sessionId))) {
       socket.emit('logout');
       socket.disconnect();
@@ -382,33 +395,35 @@ io.on('connection', (socket) => {
     }
     if (!players[socket.id]) return;
 
+    const player = players[socket.id];
+    let newPos;
+
+    if (data.x !== undefined && data.y !== undefined) {
+      // Click movement: direct position
+      newPos = { x: data.x, y: data.y };
+    } else {
+      return; // Invalid data
+    }
+
     // Clamp position to map bounds
     newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));
     newPos.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newPos.y));
-
-    const player = players[socket.id];
-    const dist = Math.sqrt((newPos.x - player.lastPos.x) ** 2 + (newPos.y - player.lastPos.y) ** 2);
-    const timeDiff = Date.now() - player.lastTime;
-    const speed = dist / (timeDiff / 1000);
-
-    if (speed > MAX_SPEED) {
-      // Speedhack detected, teleport back and kick
-      socket.emit('teleport', player.lastPos);
-      socket.emit('chatError', 'Speedhack detected! You have been kicked.');
-      console.log(`Speedhack detected for user ${socket.userId}: speed ${speed} > ${MAX_SPEED}. Kicking user.`);
-      socket.disconnect();
-      return;
-    }
 
     // Valid move
     player.position = newPos;
     player.lastPos = { ...newPos };
     player.lastTime = Date.now();
 
-    // Update DB
-    db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, newPos.x, newPos.y]);
-    // Broadcast
+    // Update DB every 1 second to avoid spamming
+    if (Date.now() - player.lastDbUpdate > 1000) {
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, newPos.x, newPos.y]);
+      player.lastDbUpdate = Date.now();
+    }
+
+    // Broadcast to others
     socket.broadcast.emit('playerMoved', { id: socket.id, position: newPos });
+    // Send back to client
+    socket.emit('moved', newPos);
   });
 
   socket.on('chat', async (data) => {
@@ -440,6 +455,10 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     if (players[socket.id]) {
+      // Save final position and stamina to DB
+      const player = players[socket.id];
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, player.position.x, player.position.y]);
+      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), socket.characterId]);
       delete players[socket.id];
       socket.broadcast.emit('playerLeft', socket.id);
     }
@@ -447,6 +466,65 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.userId);
   });
 });
+
+// Global movement update loop
+setInterval(() => {
+  Object.keys(players).forEach(socketId => {
+    const player = players[socketId];
+    if (!player.moving || Object.keys(player.moving).length === 0) return;
+
+    let isSprinting = player.moving['shift'] && player.character.current_stamina > 0;
+    let speed = BASE_SPEED;
+    if (isSprinting) speed *= SPRINT_MULTIPLIER;
+
+    let dx = 0, dy = 0;
+    if (player.moving['w']) dy -= speed;
+    if (player.moving['s']) dy += speed;
+    if (player.moving['a']) dx -= speed;
+    if (player.moving['d']) dx += speed;
+
+    if (dx === 0 && dy === 0) return;
+
+    const newPos = { x: player.position.x + dx, y: player.position.y + dy };
+
+    // Clamp
+    newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));
+    newPos.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newPos.y));
+
+    // Update
+    player.position = newPos;
+    player.lastPos = { ...newPos };
+    player.lastTime = Date.now();
+
+    // Update stamina
+    if (isSprinting) {
+      player.character.current_stamina = Math.max(0, player.character.current_stamina - 0.02);
+    } else {
+      player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.01);
+    }
+
+    // DB update
+    if (Date.now() - player.lastDbUpdate > 1000) {
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [player.character.id, newPos.x, newPos.y]);
+      player.lastDbUpdate = Date.now();
+    }
+
+    // Stamina DB update
+    if (Date.now() - player.lastStaminaDbUpdate > 1000) {
+      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), player.character.id]);
+      player.lastStaminaDbUpdate = Date.now();
+      // Emit stamina update to client
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket) socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina });
+    }
+
+    // Broadcast
+    io.emit('playerMoved', { id: socketId, position: newPos });
+    // Send to player
+    const socket = io.sockets.sockets.get(socketId);
+    if (socket) socket.emit('moved', newPos);
+  });
+}, 20); // 20ms for smooth movement
 
 // Session validation endpoint
 app.post('/api/validate-session', (req, res) => {

@@ -25,6 +25,7 @@ class RegnumMap {
     this.socket = null;
     this.players = {}; // { id: { marker, character } }
     this.currentPlayer = null;
+    this.playerSpeed = 0; // Will be set by server
     this.init();
     this.initUI();
   }
@@ -516,11 +517,6 @@ class RegnumMap {
     // Clear players
     Object.keys(this.players).forEach(id => this.removePlayer(id));
     this.currentPlayer = null;
-    // Stop movement if running
-    if (this.movementInterval) {
-      clearInterval(this.movementInterval);
-      this.movementInterval = null;
-    }
     // Show character modal
     this.showCharacterModal();
   }
@@ -544,12 +540,13 @@ class RegnumMap {
 
     this.socket.on('connect', () => {
       console.log('Connected to server');
-      this.socket.emit('join', characterId);
+      this.socket.emit('join', { characterId });
     });
 
     this.socket.on('joined', (data) => {
       console.log('Joined game', data);
       this.currentPlayer = data.character;
+      this.playerSpeed = data.speed;
       this.addPlayer(this.socket.id, data.character, data.position, true);
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
       this.updateLocationDisplay(data.position);
@@ -568,6 +565,10 @@ class RegnumMap {
 
     this.socket.on('playerMoved', (data) => {
       this.updatePlayerPosition(data.id, data.position);
+    });
+
+    this.socket.on('moved', (newPos) => {
+      this.updatePlayerPosition(this.socket.id, newPos);
     });
 
     this.socket.on('playerLeft', (id) => {
@@ -593,6 +594,11 @@ class RegnumMap {
 
     this.socket.on('teleport', (position) => {
       this.moveToPosition(position.x, position.y);
+    });
+
+    this.socket.on('staminaUpdate', (data) => {
+      this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
+      this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
     });
   }
 
@@ -649,32 +655,19 @@ class RegnumMap {
   initMovement() {
     this.keys = {};
     document.addEventListener('keydown', (e) => {
-      this.keys[e.key.toLowerCase()] = true;
+      if (!this.keys[e.key.toLowerCase()]) {
+        this.keys[e.key.toLowerCase()] = true;
+        this.socket.emit('keyDown', { key: e.key.toLowerCase() });
+      }
     });
     document.addEventListener('keyup', (e) => {
       this.keys[e.key.toLowerCase()] = false;
+      this.socket.emit('keyUp', { key: e.key.toLowerCase() });
     });
     this.map.on('click', (e) => {
       this.moveTo(e.latlng);
     });
     this.map.on('zoomend', () => this.updateZoomDisplay(this.map.getZoom()));
-    this.movementInterval = setInterval(() => this.handleMovement(), 100);
-  }
-
-  handleMovement() {
-    if (!this.currentPlayer || !this.socket) return;
-    let dx = 0, dy = 0;
-    const speed = 10; // Adjust speed
-    if (this.keys['w']) dy -= speed;
-    if (this.keys['s']) dy += speed;
-    if (this.keys['a']) dx -= speed;
-    if (this.keys['d']) dx += speed;
-    if (dx !== 0 || dy !== 0) {
-      const currentPos = this.players[this.socket.id].position;
-      const newX = currentPos.x + dx;
-      const newY = currentPos.y + dy;
-      this.moveToPosition(newX, newY);
-    }
   }
 
   moveTo(latlng) {
@@ -687,7 +680,7 @@ class RegnumMap {
     x = Math.max(0, Math.min(6126, x));
     y = Math.max(0, Math.min(6190, y));
     this.socket.emit('move', { x, y });
-    // Update local position immediately for responsiveness
+    // Update local position immediately for responsiveness (will be corrected by server if invalid)
     this.updatePlayerPosition(this.socket.id, { x, y });
   }
 

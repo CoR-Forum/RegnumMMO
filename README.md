@@ -1,47 +1,65 @@
 # Regnum MMORPG
 
-A browser-based MMORPG built on the Regnum Online map.
+A browser-based MMORPG inspired by the Regnum Online map, designed for immersive real-time multiplayer gameplay.
 
 ## Features
 
-- Interactive map based on Regnum Online world
-- Node.js backend with Express
-- MySQL database integration
-- Docker containerization
-- Real-time multiplayer support (planned)
+- **Interactive Map**: Explore the world of Regnum Online through an interactive browser-based map.
+- **Node.js Backend**: Powered by Express for efficient server-side operations.
+- **MySQL Integration**: Robust database support for player data and game state.
+- **Dockerized Deployment**: Simplified setup and deployment using Docker Compose.
+- **Real-Time Multiplayer**: Planned feature for engaging player interactions.
 
-## Setup
+## Getting Started
 
-1. Clone the repository
-2. Copy `.env.example` to `.env` and fill in your database credentials
-3. Run with Docker Compose:
+### Prerequisites
 
+Ensure you have the following installed:
+- [Node.js](https://nodejs.org/) (v16 or higher recommended)
+- [Docker](https://www.docker.com/)
+- [MySQL](https://www.mysql.com/)
+
+### Installation
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/CoR-Forum/RegnumMMO.git
+   cd RegnumMMO
+   ```
+
+2. **Environment Configuration**:
+   Copy the example environment file and update it with your database credentials:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Run the Application**:
+   - Using Docker Compose:
+     ```bash
+     docker-compose up --build
+     ```
+   - Running Locally:
+     ```bash
+     npm install
+     npm start
+     ```
+
+### Development Mode
+
+For development, use the following command to enable live reloading with `nodemon`:
 ```bash
-docker-compose up --build
-```
-
-Or run locally:
-
-```bash
-npm install
-npm start
-```
-
-## Development
-
-```bash
-npm run dev  # with nodemon
+npm run dev
 ```
 
 ## API Endpoints
 
-- `GET /` - Serve the map interface
-- `GET /api/health` - Health check
-- `GET /api/players` - Get all players (example)
+- `GET /` - Serves the interactive map interface.
+- `GET /api/health` - Health check endpoint.
+- `GET /api/players` - Retrieve all player data (example endpoint).
 
 ## Database Schema
 
-Create these tables in your MySQL database:
+Ensure your MySQL database includes the following schema:
 
 ```sql
 CREATE TABLE players (
@@ -54,6 +72,24 @@ CREATE TABLE players (
 );
 ```
 
+## Contributing
+
+We welcome contributions! To get started:
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Submit a pull request with a detailed description of your changes.
+
+## Roadmap
+
+- [ ] Implement real-time multiplayer functionality.
+- [ ] Enhance map interactivity with additional layers and markers.
+- [ ] Add user authentication and session management.
+- [ ] Optimize performance for large-scale player interactions.
+
 ## License
 
-MIT
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+*Regnum MMORPG: Bringing the world of Regnum Online to your browser.*

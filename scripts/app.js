@@ -187,6 +187,7 @@ class RegnumMap {
             localStorage.removeItem('user');
             localStorage.removeItem('character');
             this.updateLoginBtn(false);
+            this.showLoginModal();
           }
         })
         .catch(err => {
@@ -195,9 +196,11 @@ class RegnumMap {
           localStorage.removeItem('user');
           localStorage.removeItem('character');
           this.updateLoginBtn(false);
+          this.showLoginModal();
         });
     } else {
       this.updateLoginBtn(false);
+      this.showLoginModal();
     }
   }
 
@@ -225,6 +228,7 @@ class RegnumMap {
     localStorage.removeItem('character');
     this.hideCharacterInfo();
     this.hideChatPanel();
+    this.hideCharacterModal();
     this.updateLoginBtn(false);
     if (this.socket) {
       this.socket.disconnect();
@@ -361,6 +365,14 @@ class RegnumMap {
       const response = await fetch(`/api/characters`);
       const characters = await response.json();
       this.characterList.innerHTML = '';
+      // Add logout button
+      const logoutDiv = document.createElement('div');
+      logoutDiv.className = 'logout-button-container';
+      const logoutBtn = document.createElement('button');
+      logoutBtn.textContent = 'Logout';
+      logoutBtn.addEventListener('click', () => this.logout());
+      logoutDiv.appendChild(logoutBtn);
+      this.characterList.appendChild(logoutDiv);
       if (characters.length > 0 && !this.selectedRealm) {
         characters.sort((a, b) => b.id - a.id); // Sort by id descending
         this.selectedRealm = characters[0].realm;

@@ -36,9 +36,7 @@ class RegnumMap {
       this.setupTileLayer();
     } catch (error) {
       console.error('Failed to initialize map:', error);
-      // this.handleMapError(error); // Method not defined, removed
     }
-    this.initUI();
   }
 
   createMap() {
@@ -108,6 +106,7 @@ class RegnumMap {
     this.characterList = document.getElementById('character-list');
     this.charName = document.getElementById('char-name-input');
     this.charRealm = document.getElementById('char-realm');
+    this.charRealmText = document.getElementById('char-realm-text');
     this.charRace = document.getElementById('char-race');
     this.charClass = document.getElementById('char-class');
     this.createCharacterBtn = document.getElementById('create-character');
@@ -308,8 +307,8 @@ class RegnumMap {
   showCharacterModal() {
     this.loadCharacters();
     // Sync hidden realm input and visible display
-    const realmInput = document.getElementById('char-realm');
-    const realmText = document.getElementById('char-realm-text');
+    const realmInput = this.charRealm;
+    const realmText = this.charRealmText;
     if (this.selectedRealm) {
       if (realmInput) realmInput.value = this.selectedRealm;
       if (realmText) realmText.textContent = this.selectedRealm;
@@ -343,8 +342,8 @@ class RegnumMap {
       if (characters.length > 0 && !this.selectedRealm) {
         characters.sort((a, b) => b.id - a.id); // Sort by id descending
         this.selectedRealm = characters[0].realm;
-        const realmInput = document.getElementById('char-realm');
-        const realmText = document.getElementById('char-realm-text');
+        const realmInput = this.charRealm;
+        const realmText = this.charRealmText;
         if (realmInput) realmInput.value = this.selectedRealm;
         if (realmText) realmText.textContent = this.selectedRealm;
         this.populateRaces(this.selectedRealm);
@@ -387,8 +386,8 @@ class RegnumMap {
         // Set selected realm to the realm of the most recent character (highest id) and skip realm modal
         characters.sort((a, b) => b.id - a.id); // Sort by id descending
         this.selectedRealm = characters[0].realm;
-        const realmInput = document.getElementById('char-realm');
-        const realmText = document.getElementById('char-realm-text');
+        const realmInput = this.charRealm;
+        const realmText = this.charRealmText;
         if (realmInput) realmInput.value = this.selectedRealm;
         if (realmText) realmText.textContent = this.selectedRealm;
         this.populateRaces(this.selectedRealm);

@@ -264,6 +264,10 @@ class RegnumMap {
 
   populateRaces(realm = null) {
     const selectedRealm = realm || this.charRealm.value;
+    if (!this.gameData) {
+      this.loadGameData().then(() => this.populateRaces(realm));
+      return;
+    }
     this.charRace.innerHTML = '<option value="">Select Race</option>';
     this.charClass.innerHTML = '<option value="">Select Class</option>';
     if (this.gameData && this.gameData.races[selectedRealm]) {

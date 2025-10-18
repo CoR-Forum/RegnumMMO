@@ -190,7 +190,7 @@ async function handleLogin(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-API-Key': 'nu8ojahvuTuekae4veegahsoo9too4Yuashodee7chus2thio9doh4zisa4k'
+        'X-API-Key': process.env.API_KEY
       },
       body: new URLSearchParams({ username, password })
     });
@@ -596,6 +596,6 @@ app.post('/api/validate-session', (req, res) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`Regnum MMORPG server running on port ${PORT}`);
-  console.log(`Map available at http://localhost:${PORT}`);
+  console.log(`RegnumMMO AIO server running on port ${PORT}`);
+  console.log(`Game available at http://localhost:${PORT}`);
 });

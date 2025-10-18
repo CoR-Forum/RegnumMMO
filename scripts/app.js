@@ -13,7 +13,6 @@ class RegnumMap {
     minZoom: 6,
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
-      Created by <a href="https://github.com/Joshua2504" target="_blank">Joshua2504</a><br>
       Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
     `.trim()
   });

@@ -69,6 +69,8 @@ class RegnumMap {
       noWrap: true,
       minZoom,
       maxZoom,
+      keepBuffer: 8,
+      updateWhenIdle: false,
       errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII='
     }).addTo(this.map);
   }

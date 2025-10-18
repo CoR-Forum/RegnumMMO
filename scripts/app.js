@@ -119,10 +119,13 @@ class RegnumMap {
     this.charNameDisplay = document.getElementById('char-name');
     this.healthFill = document.getElementById('health-fill');
     this.healthText = document.getElementById('health-text');
+    this.healthRegen = document.getElementById('health-regen');
     this.manaFill = document.getElementById('mana-fill');
     this.manaText = document.getElementById('mana-text');
+    this.manaRegen = document.getElementById('mana-regen');
     this.staminaFill = document.getElementById('stamina-fill');
     this.staminaText = document.getElementById('stamina-text');
+    this.staminaRegen = document.getElementById('stamina-regen');
     this.locationDisplay = document.getElementById('location-display');
     this.zoomDisplay = document.getElementById('zoom-display');
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
@@ -553,6 +556,9 @@ class RegnumMap {
       console.log('Joined game', data);
       this.currentPlayer = data.character;
       this.playerSpeed = data.speed;
+      this.healthRegen.textContent = `(+${data.healthRegen}/s)`;
+      this.manaRegen.textContent = `(+${data.manaRegen}/s)`;
+      this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
       this.addPlayer(this.socket.id, data.character, data.position, true);
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
       this.updateLocationDisplay(data.position);
@@ -605,16 +611,19 @@ class RegnumMap {
     this.socket.on('staminaUpdate', (data) => {
       this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
       this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
+      this.staminaRegen.textContent = `(${data.regen >= 0 ? '+' : ''}${data.regen}/s)`;
     });
 
     this.socket.on('healthUpdate', (data) => {
       this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
       this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
+      this.healthRegen.textContent = `(+${data.regen}/s)`;
     });
 
     this.socket.on('manaUpdate', (data) => {
       this.manaFill.style.width = `${(data.current / data.max) * 100}%`;
       this.manaText.textContent = `${Math.round(data.current)}/${data.max}`;
+      this.manaRegen.textContent = `(+${data.regen}/s)`;
     });
   }
 

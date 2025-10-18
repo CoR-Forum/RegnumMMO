@@ -146,6 +146,11 @@ body {
   font-weight: bold;
 }
 
+#health-regen, #mana-regen, #stamina-regen {
+  left: auto;
+  right: 5px;
+}
+
 #character-modal {
   display: none;
   position: fixed;

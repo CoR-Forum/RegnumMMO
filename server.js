@@ -373,7 +373,7 @@ io.on('connection', (socket) => {
       const position = posResults[0] || DEFAULT_POS;
       players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
       socket.characterId = characterId;
-      socket.emit('joined', { character, position, speed: BASE_SPEED });
+      socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 0.5 });
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player
@@ -499,7 +499,7 @@ setInterval(() => {
       db.query('UPDATE characters SET current_health = ? WHERE id = ?', [Math.round(player.character.current_health), player.character.id]);
       player.lastHealthDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('healthUpdate', { current: player.character.current_health, max: player.character.max_health });
+      if (socket) socket.emit('healthUpdate', { current: player.character.current_health, max: player.character.max_health, regen: 0.25 });
     }
 
     // Mana DB update
@@ -507,7 +507,7 @@ setInterval(() => {
       db.query('UPDATE characters SET current_mana = ? WHERE id = ?', [Math.round(player.character.current_mana), player.character.id]);
       player.lastManaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('manaUpdate', { current: player.character.current_mana, max: player.character.max_mana });
+      if (socket) socket.emit('manaUpdate', { current: player.character.current_mana, max: player.character.max_mana, regen: 0.25 });
     }
 
     // Stamina DB update
@@ -515,7 +515,10 @@ setInterval(() => {
       db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), player.character.id]);
       player.lastStaminaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina });
+      if (socket) {
+        const isMoving = Object.keys(player.moving).length > 0;
+        socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: isMoving ? 0 : 0.5 });
+      }
     }
 
     if (!player.moving || Object.keys(player.moving).length === 0) return;

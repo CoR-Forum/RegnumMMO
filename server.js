@@ -190,7 +190,8 @@ async function handleLogin(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-API-Key': process.env.API_KEY
+        'X-API-Key': process.env.API_KEY,
+        'User-Agent': 'RegnumMMO-AIO-Server/1.0'
       },
       body: new URLSearchParams({ username, password })
     });

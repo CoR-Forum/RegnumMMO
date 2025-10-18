@@ -37,8 +37,9 @@ class RegnumMap {
       this.setupTileLayer();
     } catch (error) {
       console.error('Failed to initialize map:', error);
-      this.handleMapError(error);
+      // this.handleMapError(error); // Method not defined, removed
     }
+    this.initUI();
   }
 
   createMap() {
@@ -149,24 +150,7 @@ class RegnumMap {
       option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
     });
 
-    // Chat elements
-    this.chatPanel = document.getElementById('chat-panel');
-    this.chatMessages = document.getElementById('chat-messages');
-    this.chatInput = document.getElementById('chat-input');
-    this.pmTarget = document.getElementById('pm-target');
-    this.globalTab = document.getElementById('global-tab');
-    this.realmTab = document.getElementById('realm-tab');
-    this.pmTab = document.getElementById('pm-tab');
 
-    this.currentChatType = 'global';
-
-    this.globalTab.addEventListener('click', () => this.switchChatTab('global'));
-    this.realmTab.addEventListener('click', () => this.switchChatTab('realm'));
-    this.pmTab.addEventListener('click', () => this.switchChatTab('pm'));
-
-    this.chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.sendChatMessage();
-    });
   }
 
   checkLoginStatus() {
@@ -228,7 +212,6 @@ class RegnumMap {
     localStorage.removeItem('user');
     localStorage.removeItem('character');
     this.hideCharacterInfo();
-    this.hideChatPanel();
     this.hideCharacterModal();
     this.updateLoginBtn(false);
     if (this.socket) {
@@ -287,22 +270,6 @@ class RegnumMap {
       console.error('Login error:', error);
       this.loginMessage.textContent = 'An error occurred. Please try again.';
     }
-  }
-
-  initCharacter() {
-    // Merged into initUI
-  }
-
-  initCharacterInfo() {
-    // Merged into initUI
-  }
-
-  initRealmSelection() {
-    // Merged into initUI
-  }
-
-  initChat() {
-    // Merged into initUI
   }
 
   populateRaces(realm = null) {
@@ -395,65 +362,7 @@ class RegnumMap {
     }
   }
 
-  switchChatTab(type) {
-    this.currentChatType = type;
-    this.globalTab.style.background = type === 'global' ? '#555' : '#333';
-    this.realmTab.style.background = type === 'realm' ? '#555' : '#333';
-    this.pmTab.style.background = type === 'pm' ? '#555' : '#333';
-    this.pmTarget.style.display = type === 'pm' ? 'block' : 'none';
-    this.loadChatHistory(type);
-  }
 
-  sendChatMessage() {
-    const message = this.chatInput.value.trim();
-    if (!message) return;
-    const data = { type: this.currentChatType, message };
-    if (this.currentChatType === 'pm') {
-      const toUserId = parseInt(this.pmTarget.value.trim());
-      if (!toUserId) {
-        this.appendChatMessage('Error: Enter recipient User ID', 'error');
-        return;
-      }
-      data.toUserId = toUserId;
-    }
-    this.socket.emit('chat', data);
-    this.chatInput.value = '';
-  }
-
-  appendChatMessage(msg, type = 'message') {
-    const div = document.createElement('div');
-    div.textContent = msg;
-    if (type === 'error') div.style.color = 'red';
-    this.chatMessages.appendChild(div);
-    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-  }
-
-  loadChatHistory(type = this.currentChatType) {
-    this.chatMessages.innerHTML = ''; // Clear previous messages
-    const user = JSON.parse(localStorage.getItem('user'));
-    const params = { type, limit: 20 };
-    if (type === 'realm') params.realm = this.currentPlayer.realm;
-    if (type === 'pm') params.userId = user.userID;
-    fetch(`/api/messages?${new URLSearchParams(params)}`)
-      .then(r => r.json())
-      .then(msgs => msgs.forEach(m => {
-        if (type === 'pm') {
-          const to = m.to_name ? ` to ${m.to_name}` : '';
-          this.appendChatMessage(`[PM] ${m.from_name}${to}: ${m.message}`);
-        } else {
-          this.appendChatMessage(`[${m.type.toUpperCase()}] ${m.from_name}: ${m.message}`);
-        }
-      }))
-      .catch(err => console.error(`Error loading ${type} messages:`, err));
-  }
-
-  showChatPanel() {
-    this.chatPanel.style.display = 'block';
-  }
-
-  hideChatPanel() {
-    this.chatPanel.style.display = 'none';
-  }
 
   showRealmModal() {
     this.realmModal.classList.add('show');
@@ -551,7 +460,6 @@ class RegnumMap {
     this.hideCharacterModal();
     // Connect to game
     this.connectSocket(char.id);
-    this.showChatPanel();
   }
 
   connectSocket(characterId) {
@@ -585,7 +493,6 @@ class RegnumMap {
       this.updateLocationDisplay(data.position);
       this.updateZoomDisplay(this.map.getZoom());
       this.initMovement();
-      this.loadChatHistory();
     });
 
     this.socket.on('existingPlayers', (players) => {
@@ -616,15 +523,6 @@ class RegnumMap {
       this.logout();
     });
 
-    this.socket.on('chat', (data) => {
-      const { from, message, type } = data;
-      this.appendChatMessage(`[${type.toUpperCase()}] ${from}: ${message}`);
-    });
-
-    this.socket.on('chatError', (msg) => {
-      this.appendChatMessage(`Error: ${msg}`, 'error');
-    });
-
     this.socket.on('teleport', (position) => {
       this.moveToPosition(position.x, position.y);
     });
@@ -639,12 +537,6 @@ class RegnumMap {
       this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
       this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
       this.healthRegen.textContent = `(+${data.regen}/s)`;
-    });
-
-    this.socket.on('manaUpdate', (data) => {
-      this.manaFill.style.width = `${(data.current / data.max) * 100}%`;
-      this.manaText.textContent = `${Math.round(data.current)}/${data.max}`;
-      this.manaRegen.textContent = `(+${data.regen}/s)`;
     });
   }
 

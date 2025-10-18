@@ -104,17 +104,7 @@ function initDatabase() {
       y FLOAT DEFAULT 3095,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     )`,
-    `CREATE TABLE IF NOT EXISTS messages (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      from_character_id INT,
-      to_user_id INT NULL,
-      type ENUM('global', 'realm', 'pm'),
-      message TEXT,
-      realm VARCHAR(255) NULL,
-      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (from_character_id) REFERENCES characters(id),
-      FOREIGN KEY (to_user_id) REFERENCES users(id)
-    )`
+
   ];
   tables.forEach(query => db.query(query));
 }
@@ -284,28 +274,7 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-app.get('/api/messages', (req, res) => {
-  const { type, limit = 20, userId, realm } = req.query;
-  let query, params;
-  if (type === 'global') {
-    query = 'SELECT m.id, c.name as from_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id WHERE m.type = ? ORDER BY m.timestamp DESC LIMIT ?';
-    params = ['global', parseInt(limit)];
-  } else if (type === 'realm') {
-    if (!realm) return sendError(res, 'realm required for realm messages', 400);
-    query = 'SELECT m.id, c.name as from_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id WHERE m.type = ? AND m.realm = ? ORDER BY m.timestamp DESC LIMIT ?';
-    params = ['realm', realm, parseInt(limit)];
-  } else if (type === 'pm') {
-    if (!userId) return sendError(res, 'userId required for pm messages', 400);
-    query = 'SELECT m.id, c.name as from_name, u.username as to_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id LEFT JOIN users u ON m.to_user_id = u.id WHERE m.type = ? AND (m.from_character_id IN (SELECT id FROM characters WHERE user_id = ?) OR m.to_user_id = ?) ORDER BY m.timestamp DESC LIMIT ?';
-    params = ['pm', userId, userId, parseInt(limit)];
-  } else {
-    return sendError(res, 'invalid type', 400);
-  }
-  db.query(query, params, (err, results) => {
-    if (err) return sendError(res, err.message);
-    res.json(results.reverse()); // reverse to chronological order
-  });
-});
+
 
 // Serve the map
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -379,9 +348,6 @@ io.on('connection', (socket) => {
       // Send existing players to this player
       const existingPlayers = Object.keys(players).filter(id => id !== socket.id).map(id => ({ id, ...players[id] }));
       socket.emit('existingPlayers', existingPlayers);
-      // Join chat rooms
-      socket.join('global');
-      socket.join('realm:' + character.realm);
     } catch (err) {
       socket.emit('error', `Database error: ${err.message}`);
     }
@@ -431,32 +397,7 @@ io.on('connection', (socket) => {
     socket.emit('moved', newPos);
   });
 
-  socket.on('chat', async (data) => {
-    if (!(await isSessionValid(socket.sessionId))) {
-      socket.emit('logout');
-      socket.disconnect();
-      return;
-    }
-    const { type, message, toUserId } = data;
-    if (!message || message.trim() === '') return;
-    const fromName = players[socket.id].character.name;
-    if (type === 'global') {
-      io.to('global').emit('chat', { from: fromName, message, type: 'global' });
-    } else if (type === 'realm') {
-      io.to('realm:' + players[socket.id].character.realm).emit('chat', { from: fromName, message, type: 'realm' });
-    } else if (type === 'pm') {
-      if (!toUserId) return;
-      const toSocketId = userSockets[toUserId];
-      if (toSocketId) {
-        io.to(toSocketId).emit('chat', { from: fromName, message, type: 'pm' });
-        socket.emit('chat', { from: fromName, message, type: 'pm', to: toUserId });
-      } else {
-        socket.emit('chatError', 'User not online');
-      }
-    }
-    // Store message in DB
-    db.query('INSERT INTO messages (from_character_id, to_user_id, type, message, realm) VALUES (?, ?, ?, ?, ?)', [socket.characterId, type === 'pm' ? toUserId : null, type, message, type === 'realm' ? players[socket.id].character.realm : null]);
-  });
+
 
   socket.on('ping', (start) => {
     socket.emit('pong', start);

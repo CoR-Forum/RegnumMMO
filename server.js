@@ -477,6 +477,8 @@ setInterval(() => {
   Object.keys(players).forEach(socketId => {
     const player = players[socketId];
 
+    let isSprinting = player.moving['shift'] && player.character.current_stamina > 0;
+
     // Regen health
     if (player.character.current_health < player.character.max_health) {
       player.character.current_health = Math.min(player.character.max_health, player.character.current_health + 0.005);
@@ -487,8 +489,8 @@ setInterval(() => {
       player.character.current_mana = Math.min(player.character.max_mana, player.character.current_mana + 0.005);
     }
 
-    // Regen stamina if not moving
-    if (!player.moving || Object.keys(player.moving).length === 0) {
+    // Regen stamina if not sprinting
+    if (!isSprinting) {
       if (player.character.current_stamina < player.character.max_stamina) {
         player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.01);
       }
@@ -516,16 +518,15 @@ setInterval(() => {
       player.lastStaminaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
       if (socket) {
-        const isMoving = Object.keys(player.moving).length > 0;
-        socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: isMoving ? 0 : 0.5 });
+        socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: isSprinting ? 0 : 0.5 });
       }
     }
 
     if (!player.moving || Object.keys(player.moving).length === 0) return;
 
-    let isSprinting = player.moving['shift'] && player.character.current_stamina > 0;
+    let isSprintingMoving = player.moving['shift'] && player.character.current_stamina > 0;
     let speed = BASE_SPEED;
-    if (isSprinting) speed *= SPRINT_MULTIPLIER;
+    if (isSprintingMoving) speed *= SPRINT_MULTIPLIER;
 
     let dx = 0, dy = 0;
     if (player.moving['w']) dy -= speed;
@@ -547,7 +548,7 @@ setInterval(() => {
     player.lastTime = Date.now();
 
     // Update stamina
-    if (isSprinting) {
+    if (isSprintingMoving) {
       player.character.current_stamina = Math.max(0, player.character.current_stamina - 0.02);
     }
 

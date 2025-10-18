@@ -33,7 +33,7 @@
     this.width = imgsize[0]
     this.height = imgsize[1]
     this.tilesize = tilesize || 256
-    this.zoom = 5.425
+    this.zoom = 5.420
     if (this.width && this.height) {
       this.setMaxBounds()
     }

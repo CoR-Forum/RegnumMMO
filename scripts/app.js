@@ -461,7 +461,7 @@ class RegnumMap {
   }
 
   updateLocationDisplay(position) {
-    this.locationDisplay.textContent = `Location: X: ${Math.round(position.x)}, Y: ${Math.round(position.y)}`;
+    this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(10)}, Y: ${position.y.toFixed(10)}`;
   }
 
   updateZoomDisplay(zoom) {
@@ -535,6 +535,7 @@ class RegnumMap {
       this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
       this.addPlayer(this.socket.id, data.character, data.position, true);
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
+      // Update location display with server position
       this.updateLocationDisplay(data.position);
       this.updateZoomDisplay(this.map.getZoom());
       this.initMovement();
@@ -554,6 +555,8 @@ class RegnumMap {
 
     this.socket.on('moved', (newPos) => {
       this.updatePlayerPosition(this.socket.id, newPos);
+      // Update location display with server position
+      this.updateLocationDisplay(newPos);
     });
 
     this.socket.on('playerLeft', (id) => {
@@ -606,7 +609,7 @@ class RegnumMap {
       const latLng = this.toLatLng([position.x, position.y]);
       this.players[id].position = position;
       if (id === this.socket.id) {
-        this.updateLocationDisplay(position);
+        // Location display is now updated by the 'moved' event handler
         this.map.panTo(latLng);
         this.players[id].marker.setLatLng(latLng); // Keep marker centered
       } else {
@@ -655,8 +658,7 @@ class RegnumMap {
     x = Math.max(0, Math.min(6157, x));
     y = Math.max(0, Math.min(6192, y));
     this.socket.emit('move', { x, y });
-    // Update local position immediately for responsiveness (will be corrected by server if invalid)
-    this.updatePlayerPosition(this.socket.id, { x, y });
+    // Don't update local position - wait for server confirmation
   }
 
   async createCharacter() {

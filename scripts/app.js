@@ -220,11 +220,15 @@ class RegnumMap {
   }
 
   showLoginModal() {
-    this.loginModal.classList.add('show');
+    if (this.loginModal) {
+      this.loginModal.classList.add('show');
+    }
   }
 
   hideLoginModal() {
-    this.loginModal.classList.remove('show');
+    if (this.loginModal) {
+      this.loginModal.classList.remove('show');
+    }
   }
 
   async handleLogin() {
@@ -314,18 +318,25 @@ class RegnumMap {
       if (realmInput) realmInput.value = '';
       if (realmText) realmText.textContent = 'Not selected';
     }
-    this.characterModal.classList.add('show');
+    if (this.characterModal) {
+      this.characterModal.classList.add('show');
+    }
   }
 
   hideCharacterModal() {
-    this.characterModal.classList.remove('show');
+    if (this.characterModal) {
+      this.characterModal.classList.remove('show');
+    }
   }
 
   async loadCharacters() {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) return;
     try {
-      const response = await fetch(`/api/characters`);
+      const response = await fetch(`/api/characters`, {
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
       const characters = await response.json();
       this.characterList.innerHTML = '';
       // Add logout button
@@ -360,11 +371,15 @@ class RegnumMap {
 
 
   showRealmModal() {
-    this.realmModal.classList.add('show');
+    if (this.realmModal) {
+      this.realmModal.classList.add('show');
+    }
   }
 
   hideRealmModal() {
-    this.realmModal.classList.remove('show');
+    if (this.realmModal) {
+      this.realmModal.classList.remove('show');
+    }
   }
 
   selectRealm(realm) {
@@ -377,7 +392,10 @@ class RegnumMap {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) return;
     try {
-      const response = await fetch(`/api/characters`);
+      const response = await fetch(`/api/characters`, {
+        credentials: 'include',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
       const characters = await response.json();
       if (characters.length > 0) {
         // Set selected realm to the realm of the most recent character (highest id) and skip realm modal
@@ -627,7 +645,11 @@ class RegnumMap {
     try {
       const response = await fetch('/api/characters', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        credentials: 'include',
         body: JSON.stringify({ name, realm, race, class: cls })
       });
       const data = await response.json();

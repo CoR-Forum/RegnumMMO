@@ -15,12 +15,45 @@ const server = http.createServer(app);
 const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const ENABLE_DUMMIES = process.env.ENABLE_DUMMIES || 'false';
 
 // Constants
 const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 const DEFAULT_POS = { x: 3100, y: 3000 };
+
+// Dummy players
+const NUM_DUMMIES = 10;
+const dummyPlayers = {};
+
+function createDummyPlayers() {
+  for (let i = 1; i <= NUM_DUMMIES; i++) {
+    const id = `npc-${i}`;
+    const position = {
+      x: Math.random() * (MAP_BOUNDS.maxX - MAP_BOUNDS.minX) + MAP_BOUNDS.minX,
+      y: Math.random() * (MAP_BOUNDS.maxY - MAP_BOUNDS.minY) + MAP_BOUNDS.minY
+    };
+    const character = {
+      name: `NPC ${i}`,
+      level: 1,
+      race: 'Human',
+      class: 'Warrior',
+      current_health: 100,
+      max_health: 100,
+      current_mana: 100,
+      max_mana: 100,
+      current_stamina: 100,
+      max_stamina: 100
+    };
+    dummyPlayers[id] = {
+      character,
+      position,
+      direction: Math.random() * 2 * Math.PI, // Random angle in radians
+      lastDirectionChange: Date.now()
+    };
+  }
+}
 
 // Helper function for errors
 const sendError = (res, msg, code = 500) => res.status(code).json({ error: msg });
@@ -51,7 +84,7 @@ async function isSessionValid(sessionId) {
 const sessionStore = new MySQLStore({}, db.promise());
 
 // Middleware
-app.use(cors());
+app.use(cors({ credentials: true }));
 app.use(express.json());
 app.use(session({
   secret: JWT_SECRET,
@@ -59,7 +92,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true, // Set to false for HTTP; change to true if using HTTPS
+    secure: false, // Set to false for HTTP; change to true if using HTTPS
     httpOnly: true,
     sameSite: 'strict',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
@@ -112,10 +145,27 @@ function initDatabase() {
 // Game data
 
 // Session check middleware for API
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   if (req.path === '/login' || req.path === '/logout' || req.path === '/health' || req.path === '/game-data' || req.path === '/validate-session') return next();
-  if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
-  next();
+  if (req.session.user) {
+    req.userId = req.session.user.id;
+    return next();
+  }
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const isValid = await isSessionValid(decoded.sessionId);
+      if (isValid) {
+        req.userId = decoded.userId;
+        return next();
+      }
+    } catch (e) {
+      // invalid token
+    }
+  }
+  return res.status(401).json({ error: 'Unauthorized' });
 });
 
 // Game data
@@ -168,6 +218,7 @@ const gameData = {
 
 // Connect to database
 initDatabase();
+if (ENABLE_DUMMIES) createDummyPlayers();
 
 // Login function
 async function handleLogin(req, res) {
@@ -216,7 +267,7 @@ async function handleLogin(req, res) {
 app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Regnum MMORPG server is running' }));
 
 app.get('/api/characters', (req, res) => {
-  db.query('SELECT * FROM characters WHERE user_id = ?', [req.session.user.id], (err, results) => {
+  db.query('SELECT * FROM characters WHERE user_id = ?', [req.userId], (err, results) => {
     if (err) return sendError(res, err.message);
     res.json(results);
   });
@@ -228,7 +279,7 @@ app.get('/api/game-data', (req, res) => {
 
 app.post('/api/characters', (req, res) => {
   const { name, realm, race, class: charClass } = req.body;
-  const userID = req.session.user.id;
+  const userID = req.userId;
   if (!name || !realm || !race || !charClass) {
     return res.status(400).json({ error: 'All fields required' });
   }
@@ -346,7 +397,8 @@ io.on('connection', (socket) => {
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player
-      const existingPlayers = Object.keys(players).filter(id => id !== socket.id).map(id => ({ id, ...players[id] }));
+      const allPlayers = ENABLE_DUMMIES ? { ...players, ...dummyPlayers } : players;
+      const existingPlayers = Object.keys(allPlayers).filter(id => id !== socket.id).map(id => ({ id, ...allPlayers[id] }));
       socket.emit('existingPlayers', existingPlayers);
     } catch (err) {
       socket.emit('error', `Database error: ${err.message}`);
@@ -519,6 +571,30 @@ setInterval(() => {
     const socket = io.sockets.sockets.get(socketId);
     if (socket) socket.emit('moved', newPos);
   });
+
+  // Handle dummy players
+  if (ENABLE_DUMMIES) {
+    Object.keys(dummyPlayers).forEach(id => {
+      const dummy = dummyPlayers[id];
+      // Change direction every 5 seconds
+      if (Date.now() - dummy.lastDirectionChange > 5000) {
+        dummy.direction = Math.random() * 2 * Math.PI;
+        dummy.lastDirectionChange = Date.now();
+      }
+      // Move
+      const speed = BASE_SPEED;
+      const dx = Math.cos(dummy.direction) * speed;
+      const dy = Math.sin(dummy.direction) * speed;
+      const newPos = { x: dummy.position.x + dx, y: dummy.position.y + dy };
+      // Clamp
+      newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));
+      newPos.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newPos.y));
+      // Update
+      dummy.position = newPos;
+      // Broadcast
+      io.emit('playerMoved', { id, position: newPos });
+    });
+  }
 }, 20); // 20ms for smooth movement
 
 // Session validation endpoint

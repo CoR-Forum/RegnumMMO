@@ -17,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Constants
-const MAX_SPEED = 1000;
 const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
@@ -477,7 +476,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Global movement update loop
+// Global update loop
 setInterval(() => {
   Object.keys(players).forEach(socketId => {
     const player = players[socketId];

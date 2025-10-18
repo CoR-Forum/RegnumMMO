@@ -95,7 +95,6 @@ class RegnumMap {
     this.loginMessage = document.getElementById('login-message');
 
     this.checkLoginStatus();
-
     this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
     this.closeModal.addEventListener('click', () => this.hideLoginModal());
     this.submitLogin.addEventListener('click', () => this.handleLogin());
@@ -147,8 +146,6 @@ class RegnumMap {
     this.realmOptions.forEach(option => {
       option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
     });
-
-
   }
 
   checkLoginStatus() {
@@ -600,17 +597,7 @@ class RegnumMap {
       this.keys[e.key.toLowerCase()] = false;
       this.socket.emit('keyUp', { key: e.key.toLowerCase() });
     });
-    this.map.on('click', (e) => {
-      this.moveTo(e.latlng);
-    });
     this.map.on('zoomend', () => this.updateZoomDisplay(this.map.getZoom()));
-  }
-
-  moveTo(latlng) {
-    const coords = this.rasterCoords.project(latlng);
-    const gameX = coords[0] / this.scaleX;
-    const gameY = coords[1] / this.scaleY;
-    this.moveToPosition(gameX, gameY);
   }
 
   moveToPosition(x, y) {
@@ -626,27 +613,18 @@ class RegnumMap {
     const user = JSON.parse(localStorage.getItem('user'));
     const name = this.charName.value.trim();
     // Realm is enforced: prefer selectedRealm, fall back to hidden input
-    const realm = this.selectedRealm || (document.getElementById('char-realm') && document.getElementById('char-realm').value);
+    const realm = this.selectedRealm || (this.charRealm && this.charRealm.value);
     const race = this.charRace.value;
     const cls = this.charClass.value;
+
     if (!name || !realm || !race || !cls) {
       this.characterMessage.textContent = 'All fields are required.';
       return;
     }
-    try {
-      // Ensure realm matches existing characters if any
-      try {
-        const checkResp = await fetch(`/api/characters`);
-        const existing = await checkResp.json();
-        if (existing.length > 0 && existing[0].realm !== realm) {
-          this.characterMessage.textContent = 'You can only create characters in the same realm as your existing characters.';
-          return;
-        }
-      } catch (e) {
-        // ignore and let server validate
-        console.error('Error checking existing characters before create:', e);
-      }
 
+    this.characterMessage.textContent = 'Creating character...';
+
+    try {
       const response = await fetch('/api/characters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -657,7 +635,6 @@ class RegnumMap {
         this.characterMessage.textContent = 'Character created!';
         this.loadCharacters();
         this.charName.value = '';
-        this.charRealm.value = '';
         this.charRace.innerHTML = '<option value="">Select Race</option>';
         this.charClass.innerHTML = '<option value="">Select Class</option>';
       } else {

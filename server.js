@@ -373,7 +373,7 @@ io.on('connection', (socket) => {
       const position = posResults[0] || DEFAULT_POS;
       players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
       socket.characterId = characterId;
-      socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 0.5 });
+      socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 2.0 });
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player
@@ -477,7 +477,9 @@ setInterval(() => {
   Object.keys(players).forEach(socketId => {
     const player = players[socketId];
 
-    let isSprinting = player.moving['shift'] && player.character.current_stamina > 0;
+    let isIdle = Object.keys(player.moving).length === 0;
+    let isWalking = !isIdle && !player.moving['shift'];
+    let isRunning = player.moving['shift'] && player.character.current_stamina > 0;
 
     // Regen health
     if (player.character.current_health < player.character.max_health) {
@@ -489,10 +491,14 @@ setInterval(() => {
       player.character.current_mana = Math.min(player.character.max_mana, player.character.current_mana + 0.005);
     }
 
-    // Regen stamina if not sprinting
-    if (!isSprinting) {
+    // Regen stamina
+    if (isIdle) {
       if (player.character.current_stamina < player.character.max_stamina) {
-        player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.01);
+        player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.04);
+      }
+    } else if (isWalking) {
+      if (player.character.current_stamina < player.character.max_stamina) {
+        player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.02);
       }
     }
 
@@ -518,7 +524,11 @@ setInterval(() => {
       player.lastStaminaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
       if (socket) {
-        socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: isSprinting ? 0 : 0.5 });
+        let regenRate;
+        if (isIdle) regenRate = 2.0;
+        else if (isWalking) regenRate = 1.0;
+        else regenRate = -1.0;
+        socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: regenRate });
       }
     }
 

@@ -671,8 +671,10 @@ class RegnumMap {
   }
 
   moveTo(latlng) {
-    const coords = this.rasterCoords.unproject(latlng);
-    this.moveToPosition(coords[0], coords[1]);
+    const coords = this.rasterCoords.project(latlng);
+    const gameX = coords[0] / this.scaleX;
+    const gameY = coords[1] / this.scaleY;
+    this.moveToPosition(gameX, gameY);
   }
 
   moveToPosition(x, y) {

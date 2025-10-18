@@ -19,7 +19,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Constants
 const MAX_SPEED = 1000;
 const BASE_SPEED = 0.3;
-const SPRINT_MULTIPLIER = 2;
+const SPRINT_MULTIPLIER = 3;
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 const DEFAULT_POS = { x: 3100, y: 3000 };
 
@@ -398,12 +398,17 @@ io.on('connection', (socket) => {
     const player = players[socket.id];
     let newPos;
 
+    // Click movement disabled for now
+    /*
     if (data.x !== undefined && data.y !== undefined) {
       // Click movement: direct position
       newPos = { x: data.x, y: data.y };
     } else {
       return; // Invalid data
     }
+    */
+
+    return; // Disabled
 
     // Clamp position to map bounds
     newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));

@@ -26,7 +26,7 @@ class RegnumMap {
     this.players = {}; // { id: { marker, character } }
     this.currentPlayer = null;
     this.init();
-    this.initLogin();
+    this.initUI();
   }
 
   init() {
@@ -82,7 +82,8 @@ class RegnumMap {
     return this.rasterCoords.unproject([imageX, imageY]);
   };
 
-  initLogin() {
+  initUI() {
+    // Login elements
     this.loginBtn = document.getElementById('login-btn');
     this.loginModal = document.getElementById('login-modal');
     this.closeModal = document.getElementById('close-modal');
@@ -100,10 +101,70 @@ class RegnumMap {
       if (e.target === this.loginModal) this.hideLoginModal();
     });
 
-    this.initCharacter();
-    this.initCharacterInfo();
-    this.initRealmSelection();
-    this.initChat();
+    // Character elements
+    this.characterModal = document.getElementById('character-modal');
+    this.closeCharacterModal = document.getElementById('close-character-modal');
+    this.characterList = document.getElementById('character-list');
+    this.charName = document.getElementById('char-name-input');
+    this.charRealm = document.getElementById('char-realm');
+    this.charRace = document.getElementById('char-race');
+    this.charClass = document.getElementById('char-class');
+    this.createCharacterBtn = document.getElementById('create-character');
+    this.characterMessage = document.getElementById('character-message');
+
+    this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
+    this.characterModal.addEventListener('click', (e) => {
+      if (e.target === this.characterModal) this.hideCharacterModal();
+    });
+    this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
+    this.charRace.addEventListener('change', () => this.populateClasses());
+
+    // Character info elements
+    this.characterInfo = document.getElementById('character-info');
+    this.charNameDisplay = document.getElementById('char-name');
+    this.healthFill = document.getElementById('health-fill');
+    this.healthText = document.getElementById('health-text');
+    this.manaFill = document.getElementById('mana-fill');
+    this.manaText = document.getElementById('mana-text');
+    this.staminaFill = document.getElementById('stamina-fill');
+    this.staminaText = document.getElementById('stamina-text');
+    this.locationDisplay = document.getElementById('location-display');
+    this.zoomDisplay = document.getElementById('zoom-display');
+    this.switchCharacterBtn = document.getElementById('switch-character-btn');
+
+    this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
+
+    // Realm selection elements
+    this.realmModal = document.getElementById('realm-modal');
+    this.closeRealmModal = document.getElementById('close-realm-modal');
+    this.realmOptions = document.querySelectorAll('.realm-option');
+
+    this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
+    this.realmModal.addEventListener('click', (e) => {
+      if (e.target === this.realmModal) this.hideRealmModal();
+    });
+    this.realmOptions.forEach(option => {
+      option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
+    });
+
+    // Chat elements
+    this.chatPanel = document.getElementById('chat-panel');
+    this.chatMessages = document.getElementById('chat-messages');
+    this.chatInput = document.getElementById('chat-input');
+    this.pmTarget = document.getElementById('pm-target');
+    this.globalTab = document.getElementById('global-tab');
+    this.realmTab = document.getElementById('realm-tab');
+    this.pmTab = document.getElementById('pm-tab');
+
+    this.currentChatType = 'global';
+
+    this.globalTab.addEventListener('click', () => this.switchChatTab('global'));
+    this.realmTab.addEventListener('click', () => this.switchChatTab('realm'));
+    this.pmTab.addEventListener('click', () => this.switchChatTab('pm'));
+
+    this.chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.sendChatMessage();
+    });
   }
 
   checkLoginStatus() {
@@ -147,11 +208,6 @@ class RegnumMap {
       this.loginBtn.textContent = 'Login';
       this.loginBtn.style.background = '#333';
     }
-  }
-
-  handlePostLogin() {
-    // Similar to after login success: check characters and show modal
-    this.checkExistingCharacters();
   }
 
   handleLoginBtnClick() {
@@ -228,44 +284,28 @@ class RegnumMap {
   }
 
   initCharacter() {
-    this.characterModal = document.getElementById('character-modal');
-    this.closeCharacterModal = document.getElementById('close-character-modal');
-    this.characterList = document.getElementById('character-list');
-    this.charName = document.getElementById('char-name-input');
-    this.charRealm = document.getElementById('char-realm');
-    this.charRace = document.getElementById('char-race');
-    this.charClass = document.getElementById('char-class');
-    this.createCharacterBtn = document.getElementById('create-character');
-    this.characterMessage = document.getElementById('character-message');
-
-    this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
-    this.characterModal.addEventListener('click', (e) => {
-      if (e.target === this.characterModal) this.hideCharacterModal();
-    });
-    this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
-    // Realm is selected elsewhere (realm modal) or inferred from existing characters.
-    // When realm is known we will populate races for that realm.
-    this.charRace.addEventListener('change', () => this.populateClasses());
+    // Merged into initUI
   }
 
-  async loadGameData() {
-    try {
-      const response = await fetch('/api/game-data');
-      this.gameData = await response.json();
-      this.populateSelects();
-    } catch (error) {
-      console.error('Error loading game data:', error);
-    }
+  initCharacterInfo() {
+    // Merged into initUI
   }
 
-  populateSelects() {
-    // Realms are handled in realm modal
+  initRealmSelection() {
+    // Merged into initUI
+  }
+
+  initChat() {
+    // Merged into initUI
   }
 
   populateRaces(realm = null) {
     const selectedRealm = realm || this.charRealm.value;
     if (!this.gameData) {
-      this.loadGameData().then(() => this.populateRaces(realm));
+      fetch('/api/game-data').then(r => r.json()).then(data => {
+        this.gameData = data;
+        this.populateRaces(realm);
+      }).catch(error => console.error('Error loading game data:', error));
       return;
     }
     this.charRace.innerHTML = '<option value="">Select Race</option>';
@@ -317,7 +357,7 @@ class RegnumMap {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) return;
     try {
-      const response = await fetch(`/api/characters?userID=${user.userID}`);
+      const response = await fetch(`/api/characters`);
       const characters = await response.json();
       this.characterList.innerHTML = '';
       if (characters.length > 0 && !this.selectedRealm) {
@@ -339,58 +379,6 @@ class RegnumMap {
     } catch (error) {
       console.error('Error loading characters:', error);
     }
-  }
-
-  initCharacterInfo() {
-    this.characterInfo = document.getElementById('character-info');
-    this.charNameDisplay = document.getElementById('char-name');
-    this.healthFill = document.getElementById('health-fill');
-    this.healthText = document.getElementById('health-text');
-    this.manaFill = document.getElementById('mana-fill');
-    this.manaText = document.getElementById('mana-text');
-    this.staminaFill = document.getElementById('stamina-fill');
-    this.staminaText = document.getElementById('stamina-text');
-    this.locationDisplay = document.getElementById('location-display');
-    this.zoomDisplay = document.getElementById('zoom-display');
-    this.switchCharacterBtn = document.getElementById('switch-character-btn');
-
-    this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
-
-    // No automatic connection; always go through character selection
-  }
-
-  initRealmSelection() {
-    this.realmModal = document.getElementById('realm-modal');
-    this.closeRealmModal = document.getElementById('close-realm-modal');
-    this.realmOptions = document.querySelectorAll('.realm-option');
-
-    this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
-    this.realmModal.addEventListener('click', (e) => {
-      if (e.target === this.realmModal) this.hideRealmModal();
-    });
-    this.realmOptions.forEach(option => {
-      option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
-    });
-  }
-
-  initChat() {
-    this.chatPanel = document.getElementById('chat-panel');
-    this.chatMessages = document.getElementById('chat-messages');
-    this.chatInput = document.getElementById('chat-input');
-    this.pmTarget = document.getElementById('pm-target');
-    this.globalTab = document.getElementById('global-tab');
-    this.realmTab = document.getElementById('realm-tab');
-    this.pmTab = document.getElementById('pm-tab');
-
-    this.currentChatType = 'global';
-
-    this.globalTab.addEventListener('click', () => this.switchChatTab('global'));
-    this.realmTab.addEventListener('click', () => this.switchChatTab('realm'));
-    this.pmTab.addEventListener('click', () => this.switchChatTab('pm'));
-
-    this.chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.sendChatMessage();
-    });
   }
 
   switchChatTab(type) {
@@ -471,7 +459,7 @@ class RegnumMap {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) return;
     try {
-      const response = await fetch(`/api/characters?userID=${user.userID}`);
+      const response = await fetch(`/api/characters`);
       const characters = await response.json();
       if (characters.length > 0) {
         // Set selected realm to the realm of the most recent character (highest id) and skip realm modal
@@ -495,14 +483,11 @@ class RegnumMap {
 
   updateCharacterInfo(character) {
     this.charNameDisplay.textContent = `${character.name} (Lv.${character.level})`;
-    const updateBar = (fill, value, max) => {
-      fill.style.width = `${(value / max) * 100}%`;
-    };
-    updateBar(this.healthFill, character.current_health, character.max_health);
+    this.healthFill.style.width = `${(character.current_health / character.max_health) * 100}%`;
     this.healthText.textContent = `${character.current_health}/${character.max_health}`;
-    updateBar(this.manaFill, character.current_mana, character.max_mana);
+    this.manaFill.style.width = `${(character.current_mana / character.max_mana) * 100}%`;
     this.manaText.textContent = `${character.current_mana}/${character.max_mana}`;
-    updateBar(this.staminaFill, character.current_stamina, character.max_stamina);
+    this.staminaFill.style.width = `${(character.current_stamina / character.max_stamina) * 100}%`;
     this.staminaText.textContent = `${character.current_stamina}/${character.max_stamina}`;
     this.characterInfo.style.display = 'block';
   }
@@ -720,7 +705,7 @@ class RegnumMap {
     try {
       // Ensure realm matches existing characters if any
       try {
-        const checkResp = await fetch(`/api/characters?userID=${user.userID}`);
+        const checkResp = await fetch(`/api/characters`);
         const existing = await checkResp.json();
         if (existing.length > 0 && existing[0].realm !== realm) {
           this.characterMessage.textContent = 'You can only create characters in the same realm as your existing characters.';
@@ -734,7 +719,7 @@ class RegnumMap {
       const response = await fetch('/api/characters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userID: user.userID, name, realm, race, class: cls })
+        body: JSON.stringify({ name, realm, race, class: cls })
       });
       const data = await response.json();
       if (data.success) {

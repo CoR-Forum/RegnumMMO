@@ -6,11 +6,11 @@
  */
 class RegnumMap {
   static MAP_SETTINGS = Object.freeze({
-    gameDimensions: [6126, 6190],
-    imageDimensions: [8862, 8879],
-    initialZoom: 8,
+    gameDimensions: [6157, 6192],
+    imageDimensions: [6157, 6192], // Match game dimensions for 1:1 mapping
+    initialZoom: 5,
     maxZoom: 9,
-    minZoom: 6,
+    minZoom: 5,
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
       Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
@@ -51,9 +51,9 @@ class RegnumMap {
     this.rasterCoords = new L.RasterCoords(this.map, imageDimensions);
     this.map.setMaxBounds(null); // Allow free panning beyond map bounds
     
-    // Precompute scaling factors
-    this.scaleX = imageDimensions[0] / gameDimensions[0];
-    this.scaleY = imageDimensions[1] / gameDimensions[1];
+    // 1:1 mapping - no scaling needed
+    this.scaleX = 1;
+    this.scaleY = 1;
     
     const centerCoords = this.toLatLng([gameDimensions[0] / 2, gameDimensions[1] / 2]);
     this.map.setView(centerCoords, initialZoom);
@@ -71,6 +71,37 @@ class RegnumMap {
       updateWhenIdle: false,
       errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII='
     }).addTo(this.map);
+
+    // Add static map markers
+    this.addStaticMarkers();
+  }
+
+  addStaticMarkers() {
+    // Marker 1: Example location
+    const marker1 = L.marker(this.toLatLng([2998.2917480469, 2963.8518066406])).addTo(this.map);
+    marker1.bindPopup("2998.2917480469, 2963.8518066406");
+
+    // Marker 2: Another example location
+    const marker2 = L.marker(this.toLatLng([3746.0209960938, 2191.4299316406])).addTo(this.map);
+    marker2.bindPopup("3746.0209960938, 2191.4299316406");
+
+    // Marker 3: Third example location
+    const marker3 = L.marker(this.toLatLng([4908.4072265625, 1669.7856445313])).addTo(this.map);
+    marker3.bindPopup("4908.4072265625, 1669.7856445313");
+
+    // Marker 4: Fourth example location
+    const marker4 = L.marker(this.toLatLng([2632.6618652344, 3177.3698730469])).addTo(this.map);
+    marker4.bindPopup("2632.6618652344, 3177.3698730469");
+
+    // Marker 5: Fifth example location
+    const marker5 = L.marker(this.toLatLng([2451.1330566406, 3987.1953125])).addTo(this.map);
+    marker5.bindPopup("2451.1330566406, 3987.1953125");
+
+    const marker6 = L.marker(this.toLatLng([6126, 6190])).addTo(this.map);
+    marker6.bindPopup("6157, 6192");
+
+    const marker7 = L.marker(this.toLatLng([8862, 8879])).addTo(this.map);
+    marker7.bindPopup("8862, 8879");
   }
 
   toLatLng = (coords) => {
@@ -78,6 +109,7 @@ class RegnumMap {
       throw new Error('RasterCoords not initialized');
     }
     
+    // Scale game coordinates to tile map coordinates
     const imageX = coords[0] * this.scaleX;
     const imageY = coords[1] * this.scaleY;
     
@@ -620,8 +652,8 @@ class RegnumMap {
 
   moveToPosition(x, y) {
     // Clamp to map bounds
-    x = Math.max(0, Math.min(6126, x));
-    y = Math.max(0, Math.min(6190, y));
+    x = Math.max(0, Math.min(6157, x));
+    y = Math.max(0, Math.min(6192, y));
     this.socket.emit('move', { x, y });
     // Update local position immediately for responsiveness (will be corrected by server if invalid)
     this.updatePlayerPosition(this.socket.id, { x, y });

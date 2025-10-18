@@ -20,8 +20,8 @@ const ENABLE_DUMMIES = process.env.ENABLE_DUMMIES || 'false';
 // Constants
 const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
-const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
-const DEFAULT_POS = { x: 3100, y: 3000 };
+const MAP_BOUNDS = { minX: 0, maxX: 6157, minY: 0, maxY: 6192 };
+const DEFAULT_POS = { x: 3078, y: 3096 };
 
 // Dummy players
 const NUM_DUMMIES = 10;
@@ -133,8 +133,8 @@ function initDatabase() {
     `CREATE TABLE IF NOT EXISTS positions (
       id INT AUTO_INCREMENT PRIMARY KEY,
       character_id INT UNIQUE,
-      x FLOAT DEFAULT 3063,
-      y FLOAT DEFAULT 3095,
+      x FLOAT DEFAULT 3078,
+      y FLOAT DEFAULT 3096,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     )`,
 

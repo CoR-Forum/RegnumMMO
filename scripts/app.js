@@ -108,10 +108,32 @@ class RegnumMap {
 
   checkLoginStatus() {
     const user = JSON.parse(localStorage.getItem('user'));
-    if (user && user.success) {
-      this.updateLoginBtn(true, user.username);
-      // Always show character selection after login
-      this.checkExistingCharacters();
+    if (user && user.success && user.token) {
+      // Validate session with server
+      fetch('/api/validate-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: user.token })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.valid) {
+            this.updateLoginBtn(true, user.username);
+            this.checkExistingCharacters();
+          } else {
+            // Session invalid, clear local storage
+            localStorage.removeItem('user');
+            localStorage.removeItem('character');
+            this.updateLoginBtn(false);
+          }
+        })
+        .catch(err => {
+          console.error('Session validation error:', err);
+          // On error, assume invalid and clear
+          localStorage.removeItem('user');
+          localStorage.removeItem('character');
+          this.updateLoginBtn(false);
+        });
     } else {
       this.updateLoginBtn(false);
     }
@@ -587,6 +609,10 @@ class RegnumMap {
 
     this.socket.on('error', (msg) => {
       alert('Error: ' + msg);
+    });
+
+    this.socket.on('logout', () => {
+      this.logout();
     });
 
     this.socket.on('chat', (data) => {

@@ -5,6 +5,7 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const http = require('http');
@@ -14,17 +15,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(session({
-  secret: JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false } // Set to true in production with HTTPS
-}));
-app.use(express.static(path.join(__dirname)));
 
 // MySQL connection pool
 const db = mysql.createPool({
@@ -38,53 +28,36 @@ const db = mysql.createPool({
   queueLimit: 0
 });
 
-// Game data
-const gameData = {
-  realms: ['Syrtis', 'Ignis', 'Alsius'],
-  races: {
-    'Syrtis': ['Wood Elf', 'Alturian', 'Half Elf', 'Lamai'],
-    'Ignis': ['Dark Elf', 'Esquelio', 'Molok', 'Lamai'],
-    'Alsius': ['Dwarf', 'Nordo', 'Utghar', 'Lamai']
-  },
-  classes: {
-    'Wood Elf': ['Archer', 'Mage'],
-    'Alturian': ['Archer', 'Mage', 'Warrior'],
-    'Half Elf': ['Archer', 'Warrior'],
-    'Lamai': ['Archer', 'Mage', 'Warrior'],
-    'Dark Elf': ['Mage', 'Warrior'],
-    'Esquelio': ['Archer', 'Mage', 'Warrior'],
-    'Molok': ['Archer', 'Warrior'],
-    'Dwarf': ['Archer', 'Warrior'],
-    'Nordo': ['Archer', 'Mage', 'Warrior'],
-    'Utghar': ['Mage', 'Warrior']
-  },
-  startingAttributes: {
-    'Wood Elf Archer': { conc: 12, const: 10, dex: 15, int: 13, str: 10 },
-    'Wood Elf Mage': { conc: 10, const: 8, dex: 12, int: 16, str: 9 },
-    'Alturian Archer': { conc: 11, const: 12, dex: 14, int: 11, str: 12 },
-    'Alturian Mage': { conc: 9, const: 10, dex: 10, int: 15, str: 11 },
-    'Alturian Warrior': { conc: 8, const: 14, dex: 9, int: 8, str: 16 },
-    'Half Elf Archer': { conc: 10, const: 11, dex: 15, int: 10, str: 14 },
-    'Half Elf Warrior': { conc: 9, const: 13, dex: 10, int: 9, str: 15 },
-    'Lamai Archer': { conc: 11, const: 11, dex: 14, int: 12, str: 12 },
-    'Lamai Mage': { conc: 10, const: 9, dex: 11, int: 15, str: 10 },
-    'Lamai Warrior': { conc: 8, const: 13, dex: 9, int: 9, str: 16 },
-    'Dark Elf Mage': { conc: 9, const: 8, dex: 11, int: 16, str: 11 },
-    'Dark Elf Warrior': { conc: 8, const: 12, dex: 10, int: 9, str: 16 },
-    'Esquelio Archer': { conc: 11, const: 10, dex: 15, int: 11, str: 13 },
-    'Esquelio Mage': { conc: 9, const: 9, dex: 12, int: 15, str: 10 },
-    'Esquelio Warrior': { conc: 8, const: 12, dex: 10, int: 8, str: 17 },
-    'Molok Archer': { conc: 10, const: 12, dex: 14, int: 10, str: 14 },
-    'Molok Warrior': { conc: 9, const: 14, dex: 9, int: 8, str: 15 },
-    'Dwarf Archer': { conc: 10, const: 13, dex: 12, int: 9, str: 16 },
-    'Dwarf Warrior': { conc: 8, const: 15, dex: 8, int: 7, str: 17 },
-    'Nordo Archer': { conc: 11, const: 11, dex: 14, int: 11, str: 13 },
-    'Nordo Mage': { conc: 9, const: 10, dex: 11, int: 15, str: 10 },
-    'Nordo Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 },
-    'Utghar Mage': { conc: 9, const: 9, dex: 10, int: 16, str: 11 },
-    'Utghar Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 }
+// Function to check if session is valid
+async function isSessionValid(sessionId) {
+  try {
+    const [rows] = await db.promise().query('SELECT 1 FROM sessions WHERE session_id = ? AND expires > UNIX_TIMESTAMP(NOW())', [sessionId]);
+    console.log('Session check for', sessionId, 'found rows:', rows.length);
+    return rows.length > 0;
+  } catch (e) {
+    console.error('Session check error:', e);
+    return false;
   }
-};
+}
+
+const sessionStore = new MySQLStore({}, db.promise());
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(session({
+  secret: JWT_SECRET,
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'strict',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+app.use(express.static(path.join(__dirname)));
 
 // Function to initialize database
 function initDatabase() {
@@ -146,6 +119,63 @@ function initDatabase() {
   // Add columns if needed, but since recreated, not necessary
 }
 
+// Game data
+
+// Session check middleware for API
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login' || req.path === '/logout' || req.path === '/health' || req.path === '/game-data' || req.path === '/validate-session') return next();
+  if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
+  next();
+});
+
+// Game data
+const gameData = {
+  realms: ['Syrtis', 'Ignis', 'Alsius'],
+  races: {
+    'Syrtis': ['Wood Elf', 'Alturian', 'Half Elf', 'Lamai'],
+    'Ignis': ['Dark Elf', 'Esquelio', 'Molok', 'Lamai'],
+    'Alsius': ['Dwarf', 'Nordo', 'Utghar', 'Lamai']
+  },
+  classes: {
+    'Wood Elf': ['Archer', 'Mage'],
+    'Alturian': ['Archer', 'Mage', 'Warrior'],
+    'Half Elf': ['Archer', 'Warrior'],
+    'Lamai': ['Archer', 'Mage', 'Warrior'],
+    'Dark Elf': ['Mage', 'Warrior'],
+    'Esquelio': ['Archer', 'Mage', 'Warrior'],
+    'Molok': ['Archer', 'Warrior'],
+    'Dwarf': ['Archer', 'Warrior'],
+    'Nordo': ['Archer', 'Mage', 'Warrior'],
+    'Utghar': ['Mage', 'Warrior']
+  },
+  startingAttributes: {
+    'Wood Elf Archer': { conc: 12, const: 10, dex: 15, int: 13, str: 10 },
+    'Wood Elf Mage': { conc: 10, const: 8, dex: 12, int: 16, str: 9 },
+    'Alturian Archer': { conc: 11, const: 12, dex: 14, int: 11, str: 12 },
+    'Alturian Mage': { conc: 9, const: 10, dex: 10, int: 15, str: 11 },
+    'Alturian Warrior': { conc: 8, const: 14, dex: 9, int: 8, str: 16 },
+    'Half Elf Archer': { conc: 10, const: 11, dex: 15, int: 10, str: 14 },
+    'Half Elf Warrior': { conc: 9, const: 13, dex: 10, int: 9, str: 15 },
+    'Lamai Archer': { conc: 11, const: 11, dex: 14, int: 12, str: 12 },
+    'Lamai Mage': { conc: 10, const: 9, dex: 11, int: 15, str: 10 },
+    'Lamai Warrior': { conc: 8, const: 13, dex: 9, int: 9, str: 16 },
+    'Dark Elf Mage': { conc: 9, const: 8, dex: 11, int: 16, str: 11 },
+    'Dark Elf Warrior': { conc: 8, const: 12, dex: 10, int: 9, str: 16 },
+    'Esquelio Archer': { conc: 11, const: 10, dex: 15, int: 11, str: 13 },
+    'Esquelio Mage': { conc: 9, const: 9, dex: 12, int: 15, str: 10 },
+    'Esquelio Warrior': { conc: 8, const: 12, dex: 10, int: 8, str: 17 },
+    'Molok Archer': { conc: 10, const: 12, dex: 14, int: 10, str: 14 },
+    'Molok Warrior': { conc: 9, const: 14, dex: 9, int: 8, str: 15 },
+    'Dwarf Archer': { conc: 10, const: 13, dex: 12, int: 9, str: 16 },
+    'Dwarf Warrior': { conc: 8, const: 15, dex: 8, int: 7, str: 17 },
+    'Nordo Archer': { conc: 11, const: 11, dex: 14, int: 11, str: 13 },
+    'Nordo Mage': { conc: 9, const: 10, dex: 11, int: 15, str: 10 },
+    'Nordo Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 },
+    'Utghar Mage': { conc: 9, const: 9, dex: 10, int: 16, str: 11 },
+    'Utghar Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 }
+  }
+};
+
 // Connect to database
 console.log('Initializing MySQL connection pool...');
 initDatabase();
@@ -176,9 +206,15 @@ async function handleLogin(req, res) {
       db.query('SELECT id FROM users WHERE forum_userID = ?', [userID], (err2, results) => {
         if (err2) return res.status(500).json({ success: false, error: `Database error: ${err2.message}` });
         const dbId = results[0].id;
-        req.session.user = { id: dbId, forumUserID: userID, username: uname, email };
-        const token = jwt.sign({ userId: dbId }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ success: true, userID: dbId, forumUserID: userID, username: uname, email, token });
+        req.session.regenerate((err) => {
+          if (err) return res.status(500).json({ success: false, error: 'Session regeneration failed' });
+          req.session.user = { id: dbId, forumUserID: userID, username: uname, email };
+          req.session.save((saveErr) => {
+            if (saveErr) return res.status(500).json({ success: false, error: 'Session save failed' });
+            const token = jwt.sign({ userId: dbId, sessionId: req.session.id }, JWT_SECRET, { expiresIn: '24h' });
+            res.json({ success: true, userID: dbId, forumUserID: userID, username: uname, email, token });
+          });
+        });
       });
     });
   } catch (error) {
@@ -197,9 +233,7 @@ app.get('/api/players', (req, res) => {
 });
 
 app.get('/api/characters', (req, res) => {
-  const { userID } = req.query;
-  if (!userID) return res.status(400).json({ error: 'userID required' });
-  db.query('SELECT * FROM characters WHERE user_id = ?', [userID], (err, results) => {
+  db.query('SELECT * FROM characters WHERE user_id = ?', [req.session.user.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
@@ -210,8 +244,9 @@ app.get('/api/game-data', (req, res) => {
 });
 
 app.post('/api/characters', (req, res) => {
-  const { userID, name, realm, race, class: charClass } = req.body;
-  if (!userID || !name || !realm || !race || !charClass) {
+  const { name, realm, race, class: charClass } = req.body;
+  const userID = req.session.user.id;
+  if (!name || !realm || !race || !charClass) {
     return res.status(400).json({ error: 'All fields required' });
   }
 
@@ -236,7 +271,7 @@ app.post('/api/characters', (req, res) => {
     const maxMana = attrs.int * 10;
     const maxStamina = attrs.str * 10;
 
-    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
+    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, max_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       // Insert default position
       db.query('INSERT INTO positions (character_id, x, y) VALUES (?, 3063, 3095)', [result.insertId], (err2) => {
@@ -292,10 +327,17 @@ const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error('Authentication error'));
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) return next(new Error('Authentication error'));
-    socket.userId = decoded.userId;
-    next();
+    try {
+      const [rows] = await db.promise().query('SELECT 1 FROM sessions WHERE session_id = ? AND expires > UNIX_TIMESTAMP(NOW())', [decoded.sessionId]);
+      if (rows.length === 0) return next(new Error('Session invalid'));
+      socket.userId = decoded.userId;
+      socket.sessionId = decoded.sessionId;
+      next();
+    } catch (e) {
+      return next(new Error('Database error'));
+    }
   });
 });
 
@@ -313,7 +355,12 @@ io.on('connection', (socket) => {
   }
   userSockets[socket.userId] = socket.id;
 
-  socket.on('join', (characterId) => {
+  socket.on('join', async (characterId) => {
+    if (!(await isSessionValid(socket.sessionId))) {
+      socket.emit('logout');
+      socket.disconnect();
+      return;
+    }
     // Verify character belongs to user
     db.query('SELECT * FROM characters WHERE id = ? AND user_id = ?', [characterId, socket.userId], (err, results) => {
       if (err || results.length === 0) {
@@ -344,7 +391,12 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('move', (newPos) => {
+  socket.on('move', async (newPos) => {
+    if (!(await isSessionValid(socket.sessionId))) {
+      socket.emit('logout');
+      socket.disconnect();
+      return;
+    }
     if (!players[socket.id]) return;
 
     // Clamp position to map bounds
@@ -375,7 +427,12 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('playerMoved', { id: socket.id, position: newPos });
   });
 
-  socket.on('chat', (data) => {
+  socket.on('chat', async (data) => {
+    if (!(await isSessionValid(socket.sessionId))) {
+      socket.emit('logout');
+      socket.disconnect();
+      return;
+    }
     const { type, message, toUserId } = data;
     if (!message || message.trim() === '') return;
     const fromName = players[socket.id].character.name;
@@ -404,6 +461,23 @@ io.on('connection', (socket) => {
     }
     delete userSockets[socket.userId];
     console.log('User disconnected:', socket.userId);
+  });
+});
+
+// Session validation endpoint
+app.post('/api/validate-session', (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.json({ valid: false });
+
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+    if (err) {
+      console.log('JWT verify error:', err.message);
+      return res.json({ valid: false });
+    }
+    console.log('Decoded sessionId:', decoded.sessionId);
+    const isValid = await isSessionValid(decoded.sessionId);
+    console.log('Session valid:', isValid);
+    res.json({ valid: isValid });
   });
 });
 

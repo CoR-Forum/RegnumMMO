@@ -14,7 +14,7 @@ class RegnumMap {
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
       Created by <a href="https://github.com/Joshua2504" target="_blank">Joshua2504</a><br>
-      Contribute on <a href="https://github.com/CoR-Forum/Regnum.Online" target="_blank">GitHub</a>
+      Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
     `.trim()
   });
 
@@ -98,9 +98,6 @@ class RegnumMap {
     this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
     this.closeModal.addEventListener('click', () => this.hideLoginModal());
     this.submitLogin.addEventListener('click', () => this.handleLogin());
-    this.loginModal.addEventListener('click', (e) => {
-      if (e.target === this.loginModal) this.hideLoginModal();
-    });
 
     // Character elements
     this.characterModal = document.getElementById('character-modal');
@@ -114,9 +111,6 @@ class RegnumMap {
     this.characterMessage = document.getElementById('character-message');
 
     this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
-    this.characterModal.addEventListener('click', (e) => {
-      if (e.target === this.characterModal) this.hideCharacterModal();
-    });
     this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
     this.charRace.addEventListener('change', () => this.populateClasses());
 

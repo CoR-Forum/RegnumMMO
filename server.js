@@ -16,6 +16,14 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Constants
+const MAX_SPEED = 1000;
+const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
+const DEFAULT_POS = { x: 3100, y: 3000 };
+
+// Helper function for errors
+const sendError = (res, msg, code = 500) => res.status(code).json({ error: msg });
+
 // MySQL connection pool
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -191,16 +199,16 @@ async function handleLogin(req, res) {
 
     const { userID, username: uname, email } = data;
     db.query('INSERT INTO users (forum_userID, username, email) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE username=VALUES(username), email=VALUES(email)', [userID, uname, email], (err) => {
-      if (err) return res.status(500).json({ success: false, error: `Database error: ${err.message}` });
+      if (err) return sendError(res, `Database error: ${err.message}`);
       // Get the db id
       db.query('SELECT id FROM users WHERE forum_userID = ?', [userID], (err2, results) => {
-        if (err2) return res.status(500).json({ success: false, error: `Database error: ${err2.message}` });
+        if (err2) return sendError(res, `Database error: ${err2.message}`);
         const dbId = results[0].id;
         req.session.regenerate((err) => {
-          if (err) return res.status(500).json({ success: false, error: 'Session regeneration failed' });
+          if (err) return sendError(res, 'Session regeneration failed');
           req.session.user = { id: dbId, forumUserID: userID, username: uname, email };
           req.session.save((saveErr) => {
-            if (saveErr) return res.status(500).json({ success: false, error: 'Session save failed' });
+            if (saveErr) return sendError(res, 'Session save failed');
             const token = jwt.sign({ userId: dbId, sessionId: req.session.id }, JWT_SECRET, { expiresIn: '24h' });
             res.json({ success: true, userID: dbId, forumUserID: userID, username: uname, email, token });
           });
@@ -217,7 +225,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Regnum M
 
 app.get('/api/characters', (req, res) => {
   db.query('SELECT * FROM characters WHERE user_id = ?', [req.session.user.id], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) return sendError(res, err.message);
     res.json(results);
   });
 });
@@ -235,11 +243,11 @@ app.post('/api/characters', (req, res) => {
 
   // Check if user has existing characters and enforce realm consistency
   db.query('SELECT realm FROM characters WHERE user_id = ?', [userID], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) return sendError(res, err.message);
     if (results.length > 0) {
       const existingRealms = results.map(r => r.realm);
       if (!existingRealms.includes(realm)) {
-        return res.status(400).json({ error: 'You can only create characters in the same realm as your existing characters.' });
+        return sendError(res, 'You can only create characters in the same realm as your existing characters.', 400);
       }
     }
 
@@ -247,7 +255,7 @@ app.post('/api/characters', (req, res) => {
     const key = `${race} ${charClass}`;
     const attrs = gameData.startingAttributes[key];
     if (!attrs) {
-      return res.status(400).json({ error: 'Invalid race-class combination' });
+      return sendError(res, 'Invalid race-class combination', 400);
     }
 
     const maxHealth = attrs.const * 10;
@@ -255,9 +263,9 @@ app.post('/api/characters', (req, res) => {
     const maxStamina = attrs.str * 10;
 
     db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
-      if (err) return res.status(500).json({ error: err.message });
+      if (err) return sendError(res, err.message);
       // Insert default position
-      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, 3063, 3095)', [result.insertId], (err2) => {
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?)', [result.insertId, DEFAULT_POS.x, DEFAULT_POS.y], (err2) => {
         if (err2) console.error('Error inserting position:', err2);
         res.json({ success: true, id: result.insertId });
       });
@@ -281,18 +289,18 @@ app.get('/api/messages', (req, res) => {
     query = 'SELECT m.id, c.name as from_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id WHERE m.type = ? ORDER BY m.timestamp DESC LIMIT ?';
     params = ['global', parseInt(limit)];
   } else if (type === 'realm') {
-    if (!realm) return res.status(400).json({ error: 'realm required for realm messages' });
+    if (!realm) return sendError(res, 'realm required for realm messages', 400);
     query = 'SELECT m.id, c.name as from_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id WHERE m.type = ? AND m.realm = ? ORDER BY m.timestamp DESC LIMIT ?';
     params = ['realm', realm, parseInt(limit)];
   } else if (type === 'pm') {
-    if (!userId) return res.status(400).json({ error: 'userId required for pm messages' });
+    if (!userId) return sendError(res, 'userId required for pm messages', 400);
     query = 'SELECT m.id, c.name as from_name, u.username as to_name, m.message, m.type, m.timestamp FROM messages m JOIN characters c ON m.from_character_id = c.id LEFT JOIN users u ON m.to_user_id = u.id WHERE m.type = ? AND (m.from_character_id IN (SELECT id FROM characters WHERE user_id = ?) OR m.to_user_id = ?) ORDER BY m.timestamp DESC LIMIT ?';
     params = ['pm', userId, userId, parseInt(limit)];
   } else {
-    return res.status(400).json({ error: 'invalid type' });
+    return sendError(res, 'invalid type', 400);
   }
   db.query(query, params, (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) return sendError(res, err.message);
     res.json(results.reverse()); // reverse to chronological order
   });
 });
@@ -303,9 +311,6 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 // Socket.IO
 const players = {}; // Store connected players: { socketId: { character, position, lastPos, lastTime } }
 const userSockets = {}; // userId -> socketId, to enforce one connection per user
-
-const MAX_SPEED = 1000; // units per second
-const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -344,34 +349,29 @@ io.on('connection', (socket) => {
       socket.disconnect();
       return;
     }
-    // Verify character belongs to user
-    db.query('SELECT * FROM characters WHERE id = ? AND user_id = ?', [characterId, socket.userId], (err, results) => {
-      if (err || results.length === 0) {
+    try {
+      const [results] = await db.promise().query('SELECT * FROM characters WHERE id = ? AND user_id = ?', [characterId, socket.userId]);
+      if (results.length === 0) {
         socket.emit('error', 'Invalid character');
         return;
       }
       const character = results[0];
-      // Get position
-      db.query('SELECT * FROM positions WHERE character_id = ?', [characterId], (err2, posResults) => {
-        if (err2) {
-          console.error('Position query error:', err2);
-          socket.emit('error', `Position error: ${err2.message}`);
-          return;
-        }
-        const position = posResults[0] || { x: 3063, y: 3095 };
-        players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now() };
-        socket.characterId = characterId;
-        socket.emit('joined', { character, position });
-        // Broadcast to others
-        socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
-        // Send existing players to this player
-        const existingPlayers = Object.keys(players).filter(id => id !== socket.id).map(id => ({ id, ...players[id] }));
-        socket.emit('existingPlayers', existingPlayers);
-        // Join chat rooms
-        socket.join('global');
-        socket.join('realm:' + character.realm);
-      });
-    });
+      const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
+      const position = posResults[0] || DEFAULT_POS;
+      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now() };
+      socket.characterId = characterId;
+      socket.emit('joined', { character, position });
+      // Broadcast to others
+      socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
+      // Send existing players to this player
+      const existingPlayers = Object.keys(players).filter(id => id !== socket.id).map(id => ({ id, ...players[id] }));
+      socket.emit('existingPlayers', existingPlayers);
+      // Join chat rooms
+      socket.join('global');
+      socket.join('realm:' + character.realm);
+    } catch (err) {
+      socket.emit('error', `Database error: ${err.message}`);
+    }
   });
 
   socket.on('move', async (newPos) => {

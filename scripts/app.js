@@ -246,8 +246,6 @@ class RegnumMap {
     // Realm is selected elsewhere (realm modal) or inferred from existing characters.
     // When realm is known we will populate races for that realm.
     this.charRace.addEventListener('change', () => this.populateClasses());
-
-    this.loadGameData();
   }
 
   async loadGameData() {
@@ -261,25 +259,11 @@ class RegnumMap {
   }
 
   populateSelects() {
-    // Realms are presented in the realm selection modal (static in HTML).
-    // We no longer populate a visible realm select in the character modal.
+    // Realms are handled in realm modal
   }
 
-  populateRacesForRealm(realm) {
-    this.charRace.innerHTML = '<option value="">Select Race</option>';
-    this.charClass.innerHTML = '<option value="">Select Class</option>';
-    if (this.gameData && this.gameData.races[realm]) {
-      this.gameData.races[realm].forEach(race => {
-        const option = document.createElement('option');
-        option.value = race;
-        option.textContent = race;
-        this.charRace.appendChild(option);
-      });
-    }
-  }
-
-  populateRaces() {
-    const selectedRealm = this.charRealm.value;
+  populateRaces(realm = null) {
+    const selectedRealm = realm || this.charRealm.value;
     this.charRace.innerHTML = '<option value="">Select Race</option>';
     this.charClass.innerHTML = '<option value="">Select Class</option>';
     if (this.gameData && this.gameData.races[selectedRealm]) {
@@ -313,7 +297,7 @@ class RegnumMap {
     if (this.selectedRealm) {
       if (realmInput) realmInput.value = this.selectedRealm;
       if (realmText) realmText.textContent = this.selectedRealm;
-      this.populateRacesForRealm(this.selectedRealm);
+      this.populateRaces(this.selectedRealm);
     } else {
       if (realmInput) realmInput.value = '';
       if (realmText) realmText.textContent = 'Not selected';
@@ -332,7 +316,6 @@ class RegnumMap {
       const response = await fetch(`/api/characters?userID=${user.userID}`);
       const characters = await response.json();
       this.characterList.innerHTML = '';
-      // If the user has existing characters, set selectedRealm to the realm of the most recent character (highest id)
       if (characters.length > 0 && !this.selectedRealm) {
         characters.sort((a, b) => b.id - a.id); // Sort by id descending
         this.selectedRealm = characters[0].realm;
@@ -340,6 +323,7 @@ class RegnumMap {
         const realmText = document.getElementById('char-realm-text');
         if (realmInput) realmInput.value = this.selectedRealm;
         if (realmText) realmText.textContent = this.selectedRealm;
+        this.populateRaces(this.selectedRealm);
       }
       characters.forEach(char => {
         const div = document.createElement('div');
@@ -411,6 +395,7 @@ class RegnumMap {
     this.realmTab.style.background = type === 'realm' ? '#555' : '#333';
     this.pmTab.style.background = type === 'pm' ? '#555' : '#333';
     this.pmTarget.style.display = type === 'pm' ? 'block' : 'none';
+    this.loadChatHistory(type);
   }
 
   sendChatMessage() {
@@ -437,27 +422,23 @@ class RegnumMap {
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
   }
 
-  loadChatHistory() {
+  loadChatHistory(type = this.currentChatType) {
     this.chatMessages.innerHTML = ''; // Clear previous messages
     const user = JSON.parse(localStorage.getItem('user'));
-    // Load global messages
-    fetch(`/api/messages?type=global&limit=20`)
-      .then(r => r.json())
-      .then(msgs => msgs.forEach(m => this.appendChatMessage(`[${m.type.toUpperCase()}] ${m.from_name}: ${m.message}`)))
-      .catch(err => console.error('Error loading global messages:', err));
-    // Load realm messages
-    fetch(`/api/messages?type=realm&realm=${this.currentPlayer.realm}&limit=20`)
-      .then(r => r.json())
-      .then(msgs => msgs.forEach(m => this.appendChatMessage(`[${m.type.toUpperCase()}] ${m.from_name}: ${m.message}`)))
-      .catch(err => console.error('Error loading realm messages:', err));
-    // Load PM messages
-    fetch(`/api/messages?type=pm&userId=${user.userID}&limit=20`)
+    const params = { type, limit: 20 };
+    if (type === 'realm') params.realm = this.currentPlayer.realm;
+    if (type === 'pm') params.userId = user.userID;
+    fetch(`/api/messages?${new URLSearchParams(params)}`)
       .then(r => r.json())
       .then(msgs => msgs.forEach(m => {
-        const to = m.to_name ? ` to ${m.to_name}` : '';
-        this.appendChatMessage(`[PM] ${m.from_name}${to}: ${m.message}`);
+        if (type === 'pm') {
+          const to = m.to_name ? ` to ${m.to_name}` : '';
+          this.appendChatMessage(`[PM] ${m.from_name}${to}: ${m.message}`);
+        } else {
+          this.appendChatMessage(`[${m.type.toUpperCase()}] ${m.from_name}: ${m.message}`);
+        }
       }))
-      .catch(err => console.error('Error loading PM messages:', err));
+      .catch(err => console.error(`Error loading ${type} messages:`, err));
   }
 
   showChatPanel() {
@@ -496,6 +477,7 @@ class RegnumMap {
         const realmText = document.getElementById('char-realm-text');
         if (realmInput) realmInput.value = this.selectedRealm;
         if (realmText) realmText.textContent = this.selectedRealm;
+        this.populateRaces(this.selectedRealm);
         this.showCharacterModal();
       } else {
         // No characters -> pick realm first
@@ -509,19 +491,15 @@ class RegnumMap {
 
   updateCharacterInfo(character) {
     this.charNameDisplay.textContent = `${character.name} (Lv.${character.level})`;
-    const healthPercent = (character.current_health / character.max_health) * 100;
-    const manaPercent = (character.current_mana / character.max_mana) * 100;
-    const staminaPercent = (character.current_stamina / character.max_stamina) * 100;
-
-    this.healthFill.style.width = `${healthPercent}%`;
+    const updateBar = (fill, value, max) => {
+      fill.style.width = `${(value / max) * 100}%`;
+    };
+    updateBar(this.healthFill, character.current_health, character.max_health);
     this.healthText.textContent = `${character.current_health}/${character.max_health}`;
-
-    this.manaFill.style.width = `${manaPercent}%`;
+    updateBar(this.manaFill, character.current_mana, character.max_mana);
     this.manaText.textContent = `${character.current_mana}/${character.max_mana}`;
-
-    this.staminaFill.style.width = `${staminaPercent}%`;
+    updateBar(this.staminaFill, character.current_stamina, character.max_stamina);
     this.staminaText.textContent = `${character.current_stamina}/${character.max_stamina}`;
-
     this.characterInfo.style.display = 'block';
   }
 

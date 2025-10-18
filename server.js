@@ -32,7 +32,6 @@ const db = mysql.createPool({
 async function isSessionValid(sessionId) {
   try {
     const [rows] = await db.promise().query('SELECT 1 FROM sessions WHERE session_id = ? AND expires > UNIX_TIMESTAMP(NOW())', [sessionId]);
-    console.log('Session check for', sessionId, 'found rows:', rows.length);
     return rows.length > 0;
   } catch (e) {
     console.error('Session check error:', e);
@@ -61,62 +60,54 @@ app.use(express.static(path.join(__dirname)));
 
 // Function to initialize database
 function initDatabase() {
-  const createUsersTable = `CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    forum_userID INT UNIQUE,
-    username VARCHAR(255) UNIQUE,
-    email VARCHAR(255)
-  )`;
-  const createPlayersTable = `CREATE TABLE IF NOT EXISTS players (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )`;
-  const createCharactersTable = `CREATE TABLE IF NOT EXISTS characters (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    name VARCHAR(255),
-    realm VARCHAR(255),
-    race VARCHAR(255),
-    class VARCHAR(255),
-    level INT DEFAULT 1,
-    conc INT DEFAULT 0,
-    \`const\` INT DEFAULT 0,
-    dex INT DEFAULT 0,
-    \`int\` INT DEFAULT 0,
-    str INT DEFAULT 0,
-    max_health INT DEFAULT 0,
-    current_health INT DEFAULT 0,
-    max_mana INT DEFAULT 0,
-    current_mana INT DEFAULT 0,
-    max_stamina INT DEFAULT 0,
-    current_stamina INT DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )`;
-  const createPositionsTable = `CREATE TABLE IF NOT EXISTS positions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    character_id INT UNIQUE,
-    x FLOAT DEFAULT 3063,
-    y FLOAT DEFAULT 3095,
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-  )`;
-  const createMessagesTable = `CREATE TABLE IF NOT EXISTS messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    from_character_id INT,
-    to_user_id INT NULL,
-    type ENUM('global', 'realm', 'pm'),
-    message TEXT,
-    realm VARCHAR(255) NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (from_character_id) REFERENCES characters(id),
-    FOREIGN KEY (to_user_id) REFERENCES users(id)
-  )`;
-  db.query(createUsersTable);
-  db.query(createPlayersTable);
-  db.query(createCharactersTable);
-  db.query(createPositionsTable);
-  db.query(createMessagesTable);
-  // Add columns if needed, but since recreated, not necessary
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      forum_userID INT UNIQUE,
+      username VARCHAR(255) UNIQUE,
+      email VARCHAR(255)
+    )`,
+    `CREATE TABLE IF NOT EXISTS characters (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT,
+      name VARCHAR(255),
+      realm VARCHAR(255),
+      race VARCHAR(255),
+      class VARCHAR(255),
+      level INT DEFAULT 1,
+      conc INT DEFAULT 0,
+      \`const\` INT DEFAULT 0,
+      dex INT DEFAULT 0,
+      \`int\` INT DEFAULT 0,
+      str INT DEFAULT 0,
+      max_health INT DEFAULT 0,
+      current_health INT DEFAULT 0,
+      max_mana INT DEFAULT 0,
+      current_mana INT DEFAULT 0,
+      max_stamina INT DEFAULT 0,
+      current_stamina INT DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS positions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      character_id INT UNIQUE,
+      x FLOAT DEFAULT 3063,
+      y FLOAT DEFAULT 3095,
+      FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      from_character_id INT,
+      to_user_id INT NULL,
+      type ENUM('global', 'realm', 'pm'),
+      message TEXT,
+      realm VARCHAR(255) NULL,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (from_character_id) REFERENCES characters(id),
+      FOREIGN KEY (to_user_id) REFERENCES users(id)
+    )`
+  ];
+  tables.forEach(query => db.query(query));
 }
 
 // Game data
@@ -177,7 +168,6 @@ const gameData = {
 };
 
 // Connect to database
-console.log('Initializing MySQL connection pool...');
 initDatabase();
 
 // Login function
@@ -225,13 +215,6 @@ async function handleLogin(req, res) {
 // Routes
 app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Regnum MMORPG server is running' }));
 
-app.get('/api/players', (req, res) => {
-  db.query('SELECT * FROM players', (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
-
 app.get('/api/characters', (req, res) => {
   db.query('SELECT * FROM characters WHERE user_id = ?', [req.session.user.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -271,7 +254,7 @@ app.post('/api/characters', (req, res) => {
     const maxMana = attrs.int * 10;
     const maxStamina = attrs.str * 10;
 
-    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, max_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
+    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       // Insert default position
       db.query('INSERT INTO positions (character_id, x, y) VALUES (?, 3063, 3095)', [result.insertId], (err2) => {
@@ -472,12 +455,9 @@ app.post('/api/validate-session', (req, res) => {
 
   jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
-      console.log('JWT verify error:', err.message);
       return res.json({ valid: false });
     }
-    console.log('Decoded sessionId:', decoded.sessionId);
     const isValid = await isSessionValid(decoded.sessionId);
-    console.log('Session valid:', isValid);
     res.json({ valid: isValid });
   });
 });

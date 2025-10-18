@@ -606,6 +606,16 @@ class RegnumMap {
       this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
       this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
     });
+
+    this.socket.on('healthUpdate', (data) => {
+      this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
+      this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
+    });
+
+    this.socket.on('manaUpdate', (data) => {
+      this.manaFill.style.width = `${(data.current / data.max) * 100}%`;
+      this.manaText.textContent = `${Math.round(data.current)}/${data.max}`;
+    });
   }
 
   addPlayer(id, character, position, isCurrent = false) {

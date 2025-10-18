@@ -371,7 +371,7 @@ io.on('connection', (socket) => {
       const character = results[0];
       const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
       const position = posResults[0] || DEFAULT_POS;
-      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), moving: {} };
+      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
       socket.characterId = characterId;
       socket.emit('joined', { character, position, speed: BASE_SPEED });
       // Broadcast to others
@@ -463,7 +463,7 @@ io.on('connection', (socket) => {
       // Save final position and stamina to DB
       const player = players[socket.id];
       db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, player.position.x, player.position.y]);
-      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), socket.characterId]);
+      db.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), socket.characterId]);
       delete players[socket.id];
       socket.broadcast.emit('playerLeft', socket.id);
     }
@@ -476,6 +476,48 @@ io.on('connection', (socket) => {
 setInterval(() => {
   Object.keys(players).forEach(socketId => {
     const player = players[socketId];
+
+    // Regen health
+    if (player.character.current_health < player.character.max_health) {
+      player.character.current_health = Math.min(player.character.max_health, player.character.current_health + 0.005);
+    }
+
+    // Regen mana
+    if (player.character.current_mana < player.character.max_mana) {
+      player.character.current_mana = Math.min(player.character.max_mana, player.character.current_mana + 0.005);
+    }
+
+    // Regen stamina if not moving
+    if (!player.moving || Object.keys(player.moving).length === 0) {
+      if (player.character.current_stamina < player.character.max_stamina) {
+        player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.01);
+      }
+    }
+
+    // Health DB update
+    if (Date.now() - player.lastHealthDbUpdate > 1000) {
+      db.query('UPDATE characters SET current_health = ? WHERE id = ?', [Math.round(player.character.current_health), player.character.id]);
+      player.lastHealthDbUpdate = Date.now();
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket) socket.emit('healthUpdate', { current: player.character.current_health, max: player.character.max_health });
+    }
+
+    // Mana DB update
+    if (Date.now() - player.lastManaDbUpdate > 1000) {
+      db.query('UPDATE characters SET current_mana = ? WHERE id = ?', [Math.round(player.character.current_mana), player.character.id]);
+      player.lastManaDbUpdate = Date.now();
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket) socket.emit('manaUpdate', { current: player.character.current_mana, max: player.character.max_mana });
+    }
+
+    // Stamina DB update
+    if (Date.now() - player.lastStaminaDbUpdate > 1000) {
+      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), player.character.id]);
+      player.lastStaminaDbUpdate = Date.now();
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket) socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina });
+    }
+
     if (!player.moving || Object.keys(player.moving).length === 0) return;
 
     let isSprinting = player.moving['shift'] && player.character.current_stamina > 0;
@@ -504,23 +546,12 @@ setInterval(() => {
     // Update stamina
     if (isSprinting) {
       player.character.current_stamina = Math.max(0, player.character.current_stamina - 0.02);
-    } else {
-      player.character.current_stamina = Math.min(player.character.max_stamina, player.character.current_stamina + 0.01);
     }
 
     // DB update
     if (Date.now() - player.lastDbUpdate > 1000) {
       db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [player.character.id, newPos.x, newPos.y]);
       player.lastDbUpdate = Date.now();
-    }
-
-    // Stamina DB update
-    if (Date.now() - player.lastStaminaDbUpdate > 1000) {
-      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), player.character.id]);
-      player.lastStaminaDbUpdate = Date.now();
-      // Emit stamina update to client
-      const socket = io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina });
     }
 
     // Broadcast

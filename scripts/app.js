@@ -26,6 +26,7 @@ class RegnumMap {
     this.players = {}; // { id: { marker, character } }
     this.currentPlayer = null;
     this.playerSpeed = 0; // Will be set by server
+    this.latency = 0;
     this.init();
     this.initUI();
   }
@@ -128,6 +129,7 @@ class RegnumMap {
     this.staminaRegen = document.getElementById('stamina-regen');
     this.locationDisplay = document.getElementById('location-display');
     this.zoomDisplay = document.getElementById('zoom-display');
+    this.latencyDisplay = document.getElementById('latency-display');
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
 
     this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
@@ -510,6 +512,17 @@ class RegnumMap {
     this.zoomDisplay.textContent = `Zoom: ${zoom}`;
   }
 
+  updateLatencyDisplay(latency) {
+    this.latencyDisplay.textContent = `Latency: ${latency} ms`;
+  }
+
+  startLatencyMeasurement() {
+    setInterval(() => {
+      const start = Date.now();
+      this.socket.emit('ping', start);
+    }, 1000);
+  }
+
   hideCharacterInfo() {
     this.characterInfo.style.display = 'none';
   }
@@ -550,6 +563,12 @@ class RegnumMap {
     this.socket.on('connect', () => {
       console.log('Connected to server');
       this.socket.emit('join', { characterId });
+      this.startLatencyMeasurement();
+    });
+
+    this.socket.on('pong', (start) => {
+      this.latency = Date.now() - start;
+      this.updateLatencyDisplay(this.latency);
     });
 
     this.socket.on('joined', (data) => {

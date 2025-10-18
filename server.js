@@ -458,6 +458,10 @@ io.on('connection', (socket) => {
     db.query('INSERT INTO messages (from_character_id, to_user_id, type, message, realm) VALUES (?, ?, ?, ?, ?)', [socket.characterId, type === 'pm' ? toUserId : null, type, message, type === 'realm' ? players[socket.id].character.realm : null]);
   });
 
+  socket.on('ping', (start) => {
+    socket.emit('pong', start);
+  });
+
   socket.on('disconnect', () => {
     if (players[socket.id]) {
       // Save final position and stamina to DB

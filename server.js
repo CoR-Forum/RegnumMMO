@@ -321,7 +321,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 const players = {}; // Store connected players: { socketId: { character, position, lastPos, lastTime } }
 const userSockets = {}; // userId -> socketId, to enforce one connection per user
 
-const MAX_SPEED = 600; // units per second
+const MAX_SPEED = 1000; // units per second
 const MAP_BOUNDS = { minX: 0, maxX: 6126, minY: 0, maxY: 6190 };
 
 io.use((socket, next) => {
@@ -409,10 +409,11 @@ io.on('connection', (socket) => {
     const speed = dist / (timeDiff / 1000);
 
     if (speed > MAX_SPEED) {
-      // Speedhack detected, teleport back
+      // Speedhack detected, teleport back and kick
       socket.emit('teleport', player.lastPos);
-      socket.emit('chatError', 'Speedhack detected! Teleported back.');
-      console.log(`Speedhack detected for user ${socket.userId}: speed ${speed} > ${MAX_SPEED}`);
+      socket.emit('chatError', 'Speedhack detected! You have been kicked.');
+      console.log(`Speedhack detected for user ${socket.userId}: speed ${speed} > ${MAX_SPEED}. Kicking user.`);
+      socket.disconnect();
       return;
     }
 

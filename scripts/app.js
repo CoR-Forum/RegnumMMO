@@ -461,7 +461,7 @@ class RegnumMap {
   }
 
   updateLocationDisplay(position) {
-    this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(10)}, Y: ${position.y.toFixed(10)}`;
+    this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
   }
 
   updateZoomDisplay(zoom) {

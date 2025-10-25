@@ -13,7 +13,7 @@ const http = require('http');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3223;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const ENABLE_DUMMIES = process.env.ENABLE_DUMMIES || 'false';
 

@@ -244,7 +244,17 @@ async function handleLogin(req, res) {
 }
 
 // Routes
-app.get('/api/health', (req, res) => res.json({ status: 'OK', message: 'Regnum MMORPG server is running' }));
+app.get('/api/health', async (req, res) => {
+  try {
+    // Check DB
+    await db.promise().query('SELECT 1');
+    // Check Redis
+    await redisClient.ping();
+    res.json({ status: 'OK', message: 'Regnum MMORPG server is running', db: 'connected', redis: 'connected' });
+  } catch (err) {
+    res.status(500).json({ status: 'ERROR', message: 'Service unavailable', error: err.message });
+  }
+});
 
 app.get('/api/characters', (req, res) => {
   db.query('SELECT * FROM characters WHERE user_id = ?', [req.userId], (err, results) => {
@@ -370,7 +380,18 @@ io.on('connection', (socket) => {
       }
       const character = results[0];
       const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
-      const position = posResults[0] || DEFAULT_POS;
+      let position = posResults[0] || DEFAULT_POS;
+
+      // Check if Redis has more recent data
+      const redisData = await redisClient.get(`player:${characterId}`);
+      if (redisData) {
+        const redisPlayer = JSON.parse(redisData);
+        position = redisPlayer.position;
+        character.current_health = redisPlayer.character.current_health;
+        character.current_mana = redisPlayer.character.current_mana;
+        character.current_stamina = redisPlayer.character.current_stamina;
+      }
+
       players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
       redisClient.set(`player:${characterId}`, JSON.stringify(players[socket.id]));
       socket.characterId = characterId;
@@ -578,8 +599,39 @@ setInterval(async () => {
       if (playerData) {
         const player = JSON.parse(playerData);
         const characterId = key.split(':')[1];
-        db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [characterId, player.position.x, player.position.y]);
-        db.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), characterId]);
+        // Use transaction for atomic updates
+        db.getConnection((err, connection) => {
+          if (err) {
+            console.error('Error getting DB connection for sync:', err);
+            return;
+          }
+          connection.beginTransaction((err) => {
+            if (err) {
+              console.error('Error starting transaction:', err);
+              connection.release();
+              return;
+            }
+            connection.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [characterId, player.position.x, player.position.y], (err) => {
+              if (err) {
+                console.error('Error updating position:', err);
+                return connection.rollback(() => connection.release());
+              }
+              connection.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), characterId], (err) => {
+                if (err) {
+                  console.error('Error updating stats:', err);
+                  return connection.rollback(() => connection.release());
+                }
+                connection.commit((err) => {
+                  if (err) {
+                    console.error('Error committing transaction:', err);
+                    return connection.rollback(() => connection.release());
+                  }
+                  connection.release();
+                });
+              });
+            });
+          });
+        });
       }
     }
   } catch (err) {

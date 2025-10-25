@@ -127,9 +127,9 @@ class RegnumMap {
     this.loginMessage = document.getElementById('login-message');
 
     this.checkLoginStatus();
-    this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
-    this.closeModal.addEventListener('click', () => this.hideLoginModal());
-    this.submitLogin.addEventListener('click', () => this.handleLogin());
+    if (this.loginBtn) this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
+    if (this.closeModal) this.closeModal.addEventListener('click', () => this.hideLoginModal());
+    if (this.submitLogin) this.submitLogin.addEventListener('click', () => this.handleLogin());
 
     // Character elements
     this.characterModal = document.getElementById('character-modal');
@@ -143,9 +143,9 @@ class RegnumMap {
     this.createCharacterBtn = document.getElementById('create-character');
     this.characterMessage = document.getElementById('character-message');
 
-    this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
-    this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
-    this.charRace.addEventListener('change', () => this.populateClasses());
+    if (this.closeCharacterModal) this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
+    if (this.createCharacterBtn) this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
+    if (this.charRace) this.charRace.addEventListener('change', () => this.populateClasses());
 
     // Character info elements
     this.characterInfo = document.getElementById('character-info');
@@ -164,19 +164,19 @@ class RegnumMap {
     this.latencyDisplay = document.getElementById('latency-display');
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
 
-    this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
+    if (this.switchCharacterBtn) this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
 
     // Realm selection elements
     this.realmModal = document.getElementById('realm-modal');
     this.closeRealmModal = document.getElementById('close-realm-modal');
     this.realmOptions = document.querySelectorAll('.realm-option');
 
-    this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
-    this.realmModal.addEventListener('click', (e) => {
+    if (this.closeRealmModal) this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
+    if (this.realmModal) this.realmModal.addEventListener('click', (e) => {
       if (e.target === this.realmModal) this.hideRealmModal();
     });
     this.realmOptions.forEach(option => {
-      option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
+      if (option) option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
     });
   }
 
@@ -217,6 +217,7 @@ class RegnumMap {
   }
 
   updateLoginBtn(isLoggedIn, username = '') {
+    if (!this.loginBtn) return;
     if (isLoggedIn) {
       this.loginBtn.textContent = `Logged in as ${username}`;
       this.loginBtn.style.background = '#4CAF50';
@@ -264,6 +265,7 @@ class RegnumMap {
   }
 
   async handleLogin() {
+    if (!this.usernameInput || !this.passwordInput || !this.loginMessage) return;
     const username = this.usernameInput.value.trim();
     const password = this.passwordInput.value;
 
@@ -363,7 +365,7 @@ class RegnumMap {
 
   async loadCharacters() {
     const user = JSON.parse(localStorage.getItem('user'));
-    if (!user) return;
+    if (!user || !this.characterList) return;
     try {
       const response = await fetch(`/api/characters`, {
         credentials: 'include',
@@ -450,6 +452,7 @@ class RegnumMap {
   }
 
   updateCharacterInfo(character) {
+    if (!this.charNameDisplay || !this.healthFill || !this.healthText || !this.manaFill || !this.manaText || !this.staminaFill || !this.staminaText || !this.characterInfo) return;
     this.charNameDisplay.textContent = `${character.name} (Lv.${character.level})`;
     this.healthFill.style.width = `${(character.current_health / character.max_health) * 100}%`;
     this.healthText.textContent = `${character.current_health}/${character.max_health}`;
@@ -461,15 +464,15 @@ class RegnumMap {
   }
 
   updateLocationDisplay(position) {
-    this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
+    if (this.locationDisplay) this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
   }
 
   updateZoomDisplay(zoom) {
-    this.zoomDisplay.textContent = `Zoom: ${zoom}`;
+    if (this.zoomDisplay) this.zoomDisplay.textContent = `Zoom: ${zoom}`;
   }
 
   updateLatencyDisplay(latency) {
-    this.latencyDisplay.textContent = `Latency: ${latency} ms`;
+    if (this.latencyDisplay) this.latencyDisplay.textContent = `Latency: ${latency} ms`;
   }
 
   startLatencyMeasurement() {
@@ -480,7 +483,7 @@ class RegnumMap {
   }
 
   hideCharacterInfo() {
-    this.characterInfo.style.display = 'none';
+    if (this.characterInfo) this.characterInfo.style.display = 'none';
   }
 
   switchCharacter() {
@@ -530,9 +533,9 @@ class RegnumMap {
       console.log('Joined game', data);
       this.currentPlayer = data.character;
       this.playerSpeed = data.speed;
-      this.healthRegen.textContent = `(+${data.healthRegen}/s)`;
-      this.manaRegen.textContent = `(+${data.manaRegen}/s)`;
-      this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
+      if (this.healthRegen) this.healthRegen.textContent = `(+${data.healthRegen}/s)`;
+      if (this.manaRegen) this.manaRegen.textContent = `(+${data.manaRegen}/s)`;
+      if (this.staminaRegen) this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
       this.addPlayer(this.socket.id, data.character, data.position, true);
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
       // Update location display with server position
@@ -576,15 +579,15 @@ class RegnumMap {
     });
 
     this.socket.on('staminaUpdate', (data) => {
-      this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
-      this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
-      this.staminaRegen.textContent = `(${data.regen >= 0 ? '+' : ''}${data.regen}/s)`;
+      if (this.staminaFill) this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
+      if (this.staminaText) this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
+      if (this.staminaRegen) this.staminaRegen.textContent = `(${data.regen >= 0 ? '+' : ''}${data.regen}/s)`;
     });
 
     this.socket.on('healthUpdate', (data) => {
-      this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
-      this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
-      this.healthRegen.textContent = `(+${data.regen}/s)`;
+      if (this.healthFill) this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
+      if (this.healthText) this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
+      if (this.healthRegen) this.healthRegen.textContent = `(+${data.regen}/s)`;
     });
   }
 
@@ -662,6 +665,7 @@ class RegnumMap {
   }
 
   async createCharacter() {
+    if (!this.charName || !this.charRealm || !this.charRace || !this.charClass || !this.characterMessage) return;
     const user = JSON.parse(localStorage.getItem('user'));
     const name = this.charName.value.trim();
     // Realm is enforced: prefer selectedRealm, fall back to hidden input

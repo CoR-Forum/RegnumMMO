@@ -9,6 +9,17 @@ const MySQLStore = require('express-mysql-session')(session);
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const http = require('http');
+const redis = require('redis');
+
+const redisClient = redis.createClient({
+  socket: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: 6379,
+    family: 4 // IPv4
+  }
+});
+console.log('Connecting to Redis at', process.env.REDIS_HOST || 'localhost');
+redisClient.connect().catch(console.error);
 
 const app = express();
 const server = http.createServer(app);
@@ -361,6 +372,7 @@ io.on('connection', (socket) => {
       const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
       const position = posResults[0] || DEFAULT_POS;
       players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
+      redisClient.set(`player:${characterId}`, JSON.stringify(players[socket.id]));
       socket.characterId = characterId;
       socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 2.0 });
       // Broadcast to others
@@ -423,12 +435,18 @@ io.on('connection', (socket) => {
     socket.emit('pong', start);
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
+    if (socket.characterId) {
+      // Save final data from Redis to DB
+      const playerData = await redisClient.get(`player:${socket.characterId}`);
+      if (playerData) {
+        const player = JSON.parse(playerData);
+        db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, player.position.x, player.position.y]);
+        db.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), socket.characterId]);
+        redisClient.del(`player:${socket.characterId}`);
+      }
+    }
     if (players[socket.id]) {
-      // Save final position and stamina to DB
-      const player = players[socket.id];
-      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, player.position.x, player.position.y]);
-      db.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), socket.characterId]);
       delete players[socket.id];
       socket.broadcast.emit('playerLeft', socket.id);
     }
@@ -469,7 +487,6 @@ setInterval(() => {
 
     // Health DB update
     if (Date.now() - player.lastHealthDbUpdate > 1000) {
-      db.query('UPDATE characters SET current_health = ? WHERE id = ?', [Math.round(player.character.current_health), player.character.id]);
       player.lastHealthDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
       if (socket) socket.emit('healthUpdate', { current: player.character.current_health, max: player.character.max_health, regen: 0.25 });
@@ -477,7 +494,6 @@ setInterval(() => {
 
     // Mana DB update
     if (Date.now() - player.lastManaDbUpdate > 1000) {
-      db.query('UPDATE characters SET current_mana = ? WHERE id = ?', [Math.round(player.character.current_mana), player.character.id]);
       player.lastManaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
       if (socket) socket.emit('manaUpdate', { current: player.character.current_mana, max: player.character.max_mana, regen: 0.25 });
@@ -485,7 +501,6 @@ setInterval(() => {
 
     // Stamina DB update
     if (Date.now() - player.lastStaminaDbUpdate > 1000) {
-      db.query('UPDATE characters SET current_stamina = ? WHERE id = ?', [Math.round(player.character.current_stamina), player.character.id]);
       player.lastStaminaDbUpdate = Date.now();
       const socket = io.sockets.sockets.get(socketId);
       if (socket) {
@@ -496,6 +511,9 @@ setInterval(() => {
         socket.emit('staminaUpdate', { current: player.character.current_stamina, max: player.character.max_stamina, regen: regenRate });
       }
     }
+
+    // Update Redis with current state
+    redisClient.set(`player:${player.character.id}`, JSON.stringify(player));
 
     if (!player.moving || Object.keys(player.moving).length === 0) return;
 
@@ -527,17 +545,13 @@ setInterval(() => {
       player.character.current_stamina = Math.max(0, player.character.current_stamina - 0.02);
     }
 
-    // DB update
-    if (Date.now() - player.lastDbUpdate > 1000) {
-      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [player.character.id, newPos.x, newPos.y]);
-      player.lastDbUpdate = Date.now();
-    }
-
     // Broadcast
     io.emit('playerMoved', { id: socketId, position: newPos });
     // Send to player
     const socket = io.sockets.sockets.get(socketId);
     if (socket) socket.emit('moved', newPos);
+    // Update Redis
+    redisClient.set(`player:${player.character.id}`, JSON.stringify(player));
   });
 }, 20); // 20ms for smooth movement
 
@@ -554,6 +568,24 @@ app.post('/api/validate-session', (req, res) => {
     res.json({ valid: isValid });
   });
 });
+
+// Periodic sync from Redis to DB
+setInterval(async () => {
+  try {
+    const keys = await redisClient.keys('player:*');
+    for (const key of keys) {
+      const playerData = await redisClient.get(key);
+      if (playerData) {
+        const player = JSON.parse(playerData);
+        const characterId = key.split(':')[1];
+        db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [characterId, player.position.x, player.position.y]);
+        db.query('UPDATE characters SET current_health = ?, current_mana = ?, current_stamina = ? WHERE id = ?', [Math.round(player.character.current_health), Math.round(player.character.current_mana), Math.round(player.character.current_stamina), characterId]);
+      }
+    }
+  } catch (err) {
+    console.error('Error in periodic sync:', err);
+  }
+}, 10000); // every 10 seconds
 
 // Start server
 server.listen(PORT, () => {

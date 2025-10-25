@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:alpine
+    command: ["redis-server", "--appendonly", "yes"]
     restart: unless-stopped
     networks:
       - regnum-network

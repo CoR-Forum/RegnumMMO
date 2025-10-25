@@ -21,12 +21,12 @@ Before generating tiles, you may need to resize your source map to the correct d
 
 2. **Resize map to standard resolution (6157x6192):**
    ```bash
-   magick map-2025.png -filter Lanczos -resize 6157x6192 map-2025-6157x6192.png
+   magick map-2025.png -resize 6157x6192 map-2025-6157x6192.png
    ```
 
 3. **Or resize to high resolution (12314x12384):**
    ```bash
-   magick map-2025.png -filter Lanczos -resize 12314x12384 map-2025-2x.png
+   magick map-2025.png -resize 12314x12384 map-2025-2x.png
    ```
 
    > ⚠️ **When to use high quality scaling:**

@@ -2,7 +2,7 @@ services:
   regnum-mmorpg:
     build: .
     ports:
-      - "3223:3000"
+      - "3223:3223"
     environment:
       - NODE_ENV=production
       - DB_HOST=${DB_HOST}

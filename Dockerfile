@@ -8,9 +8,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install --omit=dev
 
-# Copy source code
+# Copy source code, excluded via .dockerignore
 COPY . .
 
-EXPOSE 3000
+EXPOSE 3223
 
 CMD ["npm", "start"]

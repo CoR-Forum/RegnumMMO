@@ -776,7 +776,7 @@ class RegnumMap {
       this.clearTransactionList();
       
       // Play sound and show orange text
-      this.playTransactionSound();
+      this.playSound(data.type);
       this.showTransactionMessage(data);
     });
   }
@@ -971,6 +971,8 @@ class RegnumMap {
       this.currentShopNpcId = npcId;
       // Request shop items
       this.socket.emit('getShopItems', npcId);
+      // Play open sound
+      this.playSound('open');
     }
   }
 
@@ -982,6 +984,9 @@ class RegnumMap {
       
       // Refresh inventory to show items that were in transaction
       this.socket.emit('getInventory');
+      
+      // Play close sound
+      this.playSound('close');
     }
   }
 
@@ -1029,12 +1034,16 @@ class RegnumMap {
       this.inventoryModal.style.display = 'block';
       // Request inventory
       this.socket.emit('getInventory');
+      // Play open sound
+      this.playSound('open');
     }
   }
 
   hideInventoryModal() {
     if (this.inventoryModal) {
       this.inventoryModal.style.display = 'none';
+      // Play close sound
+      this.playSound('close');
     }
   }
 
@@ -1313,14 +1322,38 @@ class RegnumMap {
     this.socket.emit('getInventory');
   }
 
-  playTransactionSound() {
+  playSound(soundTypeOrUrl) {
     try {
-      const audio = new Audio('https://cor-forum.de/regnum/datengrab/res/SOUND/50853-Ui%20item%20sell%201.ogg');
+      let soundUrl;
+      
+      // If it's a direct URL, use it
+      if (soundTypeOrUrl.startsWith('http')) {
+        soundUrl = soundTypeOrUrl;
+      } else {
+        // Otherwise treat it as a sound type
+        const soundUrls = {
+          'buy': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50855-Ui%20item%20buy%201.ogg',
+          'sell': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50853-Ui%20item%20sell%201.ogg',
+          'drop': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50854-Ui%20item%20destroy%201.ogg',
+          'open': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50848-Ui%20widget%20click%205.ogg',
+          'close': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50847-Ui%20widget%20click%206.ogg'
+        };
+        soundUrl = soundUrls[soundTypeOrUrl] || soundUrls['sell'];
+      }
+      
+      const audio = new Audio(soundUrl);
       audio.volume = 0.3; // Set volume to 30% to not be too loud
       audio.play().catch(e => console.log('Audio play failed:', e));
     } catch (error) {
       console.log('Audio playback error:', error);
     }
+  }
+
+  dropItem(inventoryId, quantity = 1) {
+    this.socket.emit('dropItem', { inventoryId, quantity });
+    
+    // Play drop sound
+    this.playSound('drop');
   }
 
   showTransactionMessage(data) {

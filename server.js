@@ -22,21 +22,176 @@ const redisClient = redis.createClient({
 console.log('Connecting to Redis at', process.env.REDIS_HOST || 'localhost');
 redisClient.connect().catch(console.error);
 
-// Initialize NPCs from gameData
-const npcs = {};
-gameData.npcs.forEach((npc, index) => {
-  const id = index + 1;
-  const isWandering = npc.name === 'Basilissa'; // Make Basilissa wander for demo
-  npcs[id] = {
-    id,
-    ...npc,
-    originalPosition: { ...npc.position },
-    roaming_type: isWandering ? 'wander' : 'static',
-    roaming_radius: isWandering ? 50 : 0,
-    roaming_speed: isWandering ? 1 : 0,
-    roaming_path: null
-  };
-});
+// NPC Type definitions
+const NPC_TYPES = {
+  CIVILIAN: 'civilian',
+  MERCHANT: 'merchant',
+  QUEST_GIVER: 'quest_giver',
+  GUARD: 'guard',
+  HEALER: 'healer',
+  BLACKSMITH: 'blacksmith',
+  KING: 'king',
+  WARLORD: 'warlord'
+};
+
+// NPC interaction handlers
+const npcInteractions = {
+  [NPC_TYPES.CIVILIAN]: (npc, socket) => {
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: `Hello, I am ${npc.name}, a humble citizen of ${npc.realm}.` 
+    });
+  },
+
+  [NPC_TYPES.MERCHANT]: (npc, socket) => {
+    let message = `Greetings traveler! I am ${npc.name}, a merchant from ${npc.realm}.`;
+    if (npc.has_shop) {
+      message += ` Would you like to see my wares?`;
+      // TODO: Open shop interface
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.QUEST_GIVER]: (npc, socket) => {
+    let message = `Ah, an adventurer! I am ${npc.name} of ${npc.realm}.`;
+    if (npc.has_quests) {
+      message += ` I have quests that need doing. Are you interested?`;
+      // TODO: Show quest dialog
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.GUARD]: (npc, socket) => {
+    let message = `Halt! I am ${npc.name}, guardian of ${npc.realm}.`;
+    if (npc.has_guard_duties) {
+      message += ` State your business.`;
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.HEALER]: (npc, socket) => {
+    let message = `Welcome, weary traveler. I am ${npc.name}, a healer from ${npc.realm}.`;
+    if (npc.has_healing) {
+      message += ` I can mend your wounds for a small fee.`;
+      // TODO: Healing service
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.BLACKSMITH]: (npc, socket) => {
+    let message = `The forge calls! I am ${npc.name}, master blacksmith of ${npc.realm}.`;
+    if (npc.has_blacksmith) {
+      message += ` Need your weapons repaired or upgraded?`;
+      // TODO: Blacksmith services
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.KING]: (npc, socket) => {
+    let message = `Approach with respect! I am ${npc.name}, ruler of ${npc.realm}.`;
+    if (npc.has_quests) {
+      message += ` What brings you to my throne?`;
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  },
+
+  [NPC_TYPES.WARLORD]: (npc, socket) => {
+    let message = `Strength and honor! I am ${npc.name}, warlord of ${npc.realm}.`;
+    if (npc.has_quests) {
+      message += ` Prove your worth in battle!`;
+    }
+    socket.emit('npcMessage', { 
+      npcId: npc.id, 
+      message: message
+    });
+  }
+};
+
+// Function to import example NPCs to database
+async function importExampleNPCs() {
+  try {
+    // Check if NPCs already exist
+    const [existing] = await db.promise().query('SELECT COUNT(*) as count FROM npcs');
+    if (existing[0].count > 0) {
+      console.log('NPCs already exist in database, skipping import');
+      return;
+    }
+
+    console.log('Importing example NPCs to database...');
+    for (const npc of gameData.npcs) {
+      await db.promise().query(
+        'INSERT INTO npcs (name, realm, level, x, y, npc_type, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          npc.name,
+          npc.realm,
+          npc.level,
+          npc.position.x,
+          npc.position.y,
+          npc.npc_type || 'civilian',
+          npc.roaming_type || 'static',
+          npc.roaming_radius || 0,
+          npc.roaming_speed || 0,
+          npc.has_shop || false,
+          npc.has_quests || false,
+          npc.has_guard_duties || false,
+          npc.has_healing || false,
+          npc.has_blacksmith || false
+        ]
+      );
+    }
+    console.log('Example NPCs imported successfully');
+  } catch (error) {
+    console.error('Error importing example NPCs:', error);
+  }
+}
+
+// Function to load NPCs from database
+async function loadNPCsFromDatabase() {
+  try {
+    const [rows] = await db.promise().query('SELECT * FROM npcs');
+    rows.forEach(row => {
+      npcs[row.id] = {
+        id: row.id,
+        name: row.name,
+        level: row.level,
+        realm: row.realm,
+        position: { x: row.x, y: row.y },
+        originalPosition: { x: row.x, y: row.y },
+        npc_type: row.npc_type || 'civilian',
+        roaming_type: row.roaming_type || 'static',
+        roaming_radius: row.roaming_radius || 0,
+        roaming_speed: row.roaming_speed || 0,
+        roaming_path: row.roaming_path ? JSON.parse(row.roaming_path) : null,
+        has_shop: row.has_shop || false,
+        has_quests: row.has_quests || false,
+        has_guard_duties: row.has_guard_duties || false,
+        has_healing: row.has_healing || false,
+        has_blacksmith: row.has_blacksmith || false
+      };
+    });
+    console.log(`Loaded ${rows.length} NPCs from database`);
+  } catch (error) {
+    console.error('Error loading NPCs from database:', error);
+  }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -51,6 +206,9 @@ const MAP_BOUNDS = { minX: 0, maxX: 6157, minY: 0, maxY: 6192 };
 const DEFAULT_POS = { x: 3078, y: 3096 };
 const VIEW_DISTANCE = 1000; // NPCs visible within 1000 units
 const INITIAL_ZOOM = 7;
+
+// NPC storage
+const npcs = {};
 
 // Helper function for errors
 
@@ -118,21 +276,21 @@ app.use(session({
 app.use(express.static(path.join(__dirname)));
 
 // Function to initialize database
-function initDatabase() {
+async function initDatabase() {
   const tables = [
     `CREATE TABLE IF NOT EXISTS realms (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) UNIQUE
-    )`,
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       forum_userID INT UNIQUE,
       username VARCHAR(255) UNIQUE,
       email VARCHAR(255)
-    )`,
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS characters (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT,
+      user_id INT NOT NULL,
       name VARCHAR(255),
       realm VARCHAR(255),
       race VARCHAR(255),
@@ -150,29 +308,44 @@ function initDatabase() {
       max_stamina INT DEFAULT 0,
       current_stamina INT DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id)
-    )`,
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS positions (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      character_id INT UNIQUE,
+      character_id INT NOT NULL UNIQUE,
       x FLOAT DEFAULT 3078,
       y FLOAT DEFAULT 3096,
       date_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
-    )`,
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS npcs (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      realm VARCHAR(255),
       name VARCHAR(255),
+      realm VARCHAR(255),
       level INT DEFAULT 1,
       x FLOAT DEFAULT 0,
       y FLOAT DEFAULT 0,
+      npc_type VARCHAR(50) DEFAULT 'civilian',
       roaming_type VARCHAR(50) DEFAULT 'static',
       roaming_radius INT DEFAULT 0,
       roaming_speed FLOAT DEFAULT 0,
-      roaming_path LONGTEXT
-    )`
+      roaming_path LONGTEXT,
+      has_shop BOOLEAN DEFAULT FALSE,
+      has_quests BOOLEAN DEFAULT FALSE,
+      has_guard_duties BOOLEAN DEFAULT FALSE,
+      has_healing BOOLEAN DEFAULT FALSE,
+      has_blacksmith BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`
   ];
-  tables.forEach(query => db.query(query));
+
+  for (const query of tables) {
+    try {
+      await db.promise().query(query);
+    } catch (err) {
+      console.error('Error creating table:', err);
+    }
+  }
 }
 
 // Game data
@@ -201,8 +374,13 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Unauthorized' });
 });
 
-// Connect to database
-initDatabase();
+// Connect to database and initialize
+(async () => {
+  await initDatabase();
+  // Initialize NPCs
+  await importExampleNPCs();
+  await loadNPCsFromDatabase();
+})();
 
 // Login function
 async function handleLogin(req, res) {
@@ -469,8 +647,9 @@ io.on('connection', (socket) => {
   socket.on('interactNPC', (npcId) => {
     const npc = npcs[npcId];
     if (!npc) return;
-    // For now, just send a greeting message
-    socket.emit('npcMessage', { npcId, message: `Hello, I am ${npc.name}, level ${npc.level} from ${npc.realm}.` });
+
+    const interactionHandler = npcInteractions[npc.npc_type] || npcInteractions[NPC_TYPES.CIVILIAN];
+    interactionHandler(npc, socket);
   });
 
   socket.on('zoomChanged', (newZoom) => {

@@ -631,14 +631,44 @@ class RegnumMap {
 
   addNPC(id, npc) {
     const latLng = this.toLatLng([npc.position.x, npc.position.y]);
+    
+    // Different icons based on NPC type
+    const iconUrls = {
+      'civilian': 'https://img.icons8.com/material-outlined/24/person-male.png',
+      'merchant': 'https://img.icons8.com/material-outlined/24/shop.png',
+      'quest_giver': 'https://img.icons8.com/material-outlined/24/quest.png',
+      'guard': 'https://img.icons8.com/material-outlined/24/shield.png',
+      'healer': 'https://img.icons8.com/material-outlined/24/medical-heart.png',
+      'blacksmith': 'https://img.icons8.com/material-outlined/24/anvil.png',
+      'king': 'https://img.icons8.com/material-outlined/24/crown.png',
+      'warlord': 'https://img.icons8.com/material-outlined/24/sword.png'
+    };
+    
+    const iconUrl = iconUrls[npc.npc_type] || iconUrls['civilian'];
     const npcIcon = L.icon({
-      iconUrl: 'https://img.icons8.com/material-outlined/24/person-male.png', // Different icon for NPCs
-      iconSize: [16, 16],
-      iconAnchor: [8, 16]
+      iconUrl: iconUrl,
+      iconSize: [20, 20],
+      iconAnchor: [10, 20]
     });
+    
     const marker = L.marker(latLng, { icon: npcIcon }).addTo(this.map);
-    marker.bindPopup(`${npc.name} (Lv.${npc.level}) - ${npc.realm}`);
-    marker.bindTooltip(`${npc.name} (Lv.${npc.level})`, { permanent: true, direction: 'top', offset: [0, -16] });
+    
+    // Different popup content based on type
+    const typeLabels = {
+      'civilian': 'Citizen',
+      'merchant': 'Merchant',
+      'quest_giver': 'Quest Giver',
+      'guard': 'Guard',
+      'healer': 'Healer',
+      'blacksmith': 'Blacksmith',
+      'king': 'King',
+      'warlord': 'Warlord'
+    };
+    
+    const typeLabel = typeLabels[npc.npc_type] || 'NPC';
+    marker.bindPopup(`${npc.name} (${typeLabel})<br>Level ${npc.level} - ${npc.realm}`);
+    marker.bindTooltip(`${npc.name} (Lv.${npc.level})`, { permanent: true, direction: 'top', offset: [0, -20] });
+    
     marker.on('click', () => this.socket.emit('interactNPC', id));
     this.npcs[id] = { marker, npc, position: npc.position };
   }

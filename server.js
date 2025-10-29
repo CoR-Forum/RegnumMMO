@@ -47,7 +47,8 @@ const npcInteractions = {
     let message = `Greetings traveler! I am ${npc.name}, a merchant from ${npc.realm}.`;
     if (npc.has_shop) {
       message += ` Would you like to see my wares?`;
-      // TODO: Open shop interface
+      // Send shop data to client
+      socket.emit('openShop', { npcId: npc.id, npcName: npc.name });
     }
     socket.emit('npcMessage', { 
       npcId: npc.id, 
@@ -125,6 +126,63 @@ const npcInteractions = {
   }
 };
 
+// Function to import example items to database
+async function importExampleItems() {
+  try {
+    // Check if items already exist
+    const [existing] = await db.promise().query('SELECT COUNT(*) as count FROM items');
+    if (existing[0].count > 0) {
+      console.log('Items already exist in database, skipping import');
+      return;
+    }
+
+    console.log('Importing example items to database...');
+    for (const item of gameData.items) {
+      await db.promise().query(
+        'INSERT INTO items (name, description, type, rarity, value, level_requirement, stackable) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [item.name, item.description, item.type, item.rarity, item.value, item.level_requirement, item.stackable]
+      );
+    }
+    console.log('Example items imported successfully');
+  } catch (error) {
+    console.error('Error importing example items:', error);
+  }
+}
+
+// Function to import shop items to database
+async function importShopItems() {
+  try {
+    console.log('Importing shop items to database...');
+    
+    // Clear existing shop items to allow re-import
+    await db.promise().query('DELETE FROM shop_items');
+    
+    // Get NPC and item IDs
+    const [npcs] = await db.promise().query('SELECT id, name FROM npcs');
+    const [items] = await db.promise().query('SELECT id, name FROM items');
+    
+    const npcMap = new Map(npcs.map(npc => [npc.name, npc.id]));
+    const itemMap = new Map(items.map(item => [item.name, item.id]));
+    
+    for (const shopItem of gameData.shopItems) {
+      const npcId = npcMap.get(shopItem.npcName);
+      const itemId = itemMap.get(shopItem.itemName);
+      
+      if (npcId && itemId) {
+        await db.promise().query(
+          'INSERT INTO shop_items (npc_id, item_id, quantity, price) VALUES (?, ?, ?, ?)',
+          [npcId, itemId, shopItem.quantity, shopItem.price]
+        );
+      } else {
+        console.warn(`Could not find NPC "${shopItem.npcName}" or item "${shopItem.itemName}" for shop item`);
+      }
+    }
+    console.log('Shop items imported successfully');
+  } catch (error) {
+    console.error('Error importing shop items:', error);
+  }
+}
+
 // Function to import example NPCs to database
 async function importExampleNPCs() {
   try {
@@ -139,22 +197,7 @@ async function importExampleNPCs() {
     for (const npc of gameData.npcs) {
       await db.promise().query(
         'INSERT INTO npcs (name, realm, level, x, y, npc_type, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          npc.name,
-          npc.realm,
-          npc.level,
-          npc.position.x,
-          npc.position.y,
-          npc.npc_type || 'civilian',
-          npc.roaming_type || 'static',
-          npc.roaming_radius || 0,
-          npc.roaming_speed || 0,
-          npc.has_shop || false,
-          npc.has_quests || false,
-          npc.has_guard_duties || false,
-          npc.has_healing || false,
-          npc.has_blacksmith || false
-        ]
+        [npc.name, npc.realm, npc.level, npc.position.x, npc.position.y, npc.npc_type, npc.roaming_type, npc.roaming_radius || 0, npc.roaming_speed || 0, npc.has_shop || false, npc.has_quests || false, npc.has_guard_duties || false, npc.has_healing || false, npc.has_blacksmith || false]
       );
     }
     console.log('Example NPCs imported successfully');
@@ -163,7 +206,7 @@ async function importExampleNPCs() {
   }
 }
 
-// Function to load NPCs from database
+// Function to import example NPCs to database
 async function loadNPCsFromDatabase() {
   try {
     const [rows] = await db.promise().query('SELECT * FROM npcs');
@@ -317,6 +360,12 @@ async function initDatabase() {
       date_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     ) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS sessions (
+      session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
+      expires INT(11) UNSIGNED NOT NULL,
+      data MEDIUMTEXT COLLATE utf8mb4_bin,
+      PRIMARY KEY (session_id)
+    ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS npcs (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255),
@@ -336,6 +385,36 @@ async function initDatabase() {
       has_blacksmith BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) UNIQUE,
+      description TEXT,
+      type VARCHAR(50), -- weapon, armor, consumable, etc.
+      rarity VARCHAR(20) DEFAULT 'common', -- common, uncommon, rare, epic, legendary
+      value INT DEFAULT 0,
+      level_requirement INT DEFAULT 1,
+      stackable BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS shop_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      npc_id INT NOT NULL,
+      item_id INT NOT NULL,
+      quantity INT DEFAULT 1,
+      price INT DEFAULT 0,
+      FOREIGN KEY (npc_id) REFERENCES npcs(id) ON DELETE CASCADE,
+      FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_shop_item (npc_id, item_id)
+    ) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS player_inventory (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      character_id INT NOT NULL,
+      item_id INT NOT NULL,
+      quantity INT DEFAULT 1,
+      tab_id INT DEFAULT 1,
+      FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+      FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
     ) ENGINE=InnoDB`
   ];
 
@@ -374,12 +453,42 @@ app.use('/api', async (req, res, next) => {
   return res.status(401).json({ error: 'Unauthorized' });
 });
 
+// Function to wait for database to be ready
+async function waitForDatabase() {
+  const maxRetries = 30; // 30 attempts = 30 seconds
+  const retryDelay = 1000; // 1 second
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await db.promise().query('SELECT 1');
+      console.log('Database connection established');
+      return;
+    } catch (error) {
+      console.log(`Waiting for database... (${i + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
+  throw new Error('Database connection failed after maximum retries');
+}
+
 // Connect to database and initialize
 (async () => {
-  await initDatabase();
-  // Initialize NPCs
-  await importExampleNPCs();
-  await loadNPCsFromDatabase();
+  try {
+    console.log('Waiting for database to be ready...');
+    await waitForDatabase();
+    
+    await initDatabase();
+    // Initialize game data
+    await importExampleItems();
+    await importExampleNPCs();
+    await importShopItems();
+    await loadNPCsFromDatabase();
+    
+    console.log('Server initialization complete');
+  } catch (error) {
+    console.error('Failed to initialize server:', error);
+    process.exit(1);
+  }
 })();
 
 // Login function
@@ -652,6 +761,224 @@ io.on('connection', (socket) => {
     interactionHandler(npc, socket);
   });
 
+  socket.on('getShopItems', async (npcId) => {
+    try {
+      const [shopItems] = await db.promise().query(`
+        SELECT si.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement
+        FROM shop_items si
+        JOIN items i ON si.item_id = i.id
+        WHERE si.npc_id = ? AND si.quantity > 0
+      `, [npcId]);
+      
+      socket.emit('shopItems', { npcId, items: shopItems });
+    } catch (error) {
+      console.error('Error getting shop items:', error);
+      socket.emit('error', 'Failed to load shop items');
+    }
+  });
+
+  socket.on('buyItem', async (data) => {
+    const { npcId, itemId, quantity = 1 } = data;
+    if (!players[socket.id]) return;
+    
+    try {
+      // Get item price
+      const [shopItem] = await db.promise().query(`
+        SELECT si.price, si.quantity as stock, i.name, i.value, i.stackable
+        FROM shop_items si
+        JOIN items i ON si.item_id = i.id
+        WHERE si.npc_id = ? AND si.item_id = ?
+      `, [npcId, itemId]);
+      
+      if (!shopItem || shopItem.length === 0) {
+        socket.emit('error', 'Item not available in this shop');
+        return;
+      }
+      
+      const item = shopItem[0];
+      const totalCost = item.price * quantity;
+      
+      // Check if player has enough gold (we'll assume they have a gold field, for now just allow)
+      // TODO: Add gold system
+      
+      // Check stock
+      if (item.stock < quantity) {
+        socket.emit('error', 'Not enough items in stock');
+        return;
+      }
+
+      if (item.stackable) {
+        // For stackable items, check if player already has this item
+        const [existingRows] = await db.promise().query(
+          'SELECT id, quantity FROM player_inventory WHERE character_id = ? AND item_id = ?',
+          [socket.characterId, itemId]
+        );
+
+        if (existingRows.length > 0) {
+          // Increase quantity
+          await db.promise().query(
+            'UPDATE player_inventory SET quantity = quantity + ? WHERE id = ?',
+            [quantity, existingRows[0].id]
+          );
+        } else {
+          // Add new item to tab 1
+          await db.promise().query(
+            'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, ?)',
+            [socket.characterId, itemId, quantity]
+          );
+        }
+      } else {
+        // For non-stackable items, add each one as separate entries
+        for (let i = 0; i < quantity; i++) {
+          await db.promise().query(
+            'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, 1)',
+            [socket.characterId, itemId]
+          );
+        }
+      }
+      
+      // Update shop stock
+      await db.promise().query(`
+        UPDATE shop_items SET quantity = quantity - ? WHERE npc_id = ? AND item_id = ?
+      `, [quantity, npcId, itemId]);
+      
+      socket.emit('itemPurchased', { itemId, quantity, itemName: item.name });
+      
+      // Send updated inventory to client
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+      
+    } catch (error) {
+      console.error('Error buying item:', error);
+      socket.emit('error', 'Failed to purchase item');
+    }
+  });
+
+  socket.on('getInventory', async () => {
+    if (!socket.characterId) return;
+    
+    try {
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+    } catch (error) {
+      console.error('Error getting inventory:', error);
+      socket.emit('error', 'Failed to load inventory');
+    }
+  });
+
+  socket.on('moveItemToTab', async (data) => {
+    const { inventoryId, toTab } = data;
+    if (!socket.characterId) return;
+
+    try {
+      // Move item to new tab
+      await db.promise().query(
+        'UPDATE player_inventory SET tab_id = ? WHERE id = ? AND character_id = ?',
+        [toTab, inventoryId, socket.characterId]
+      );
+
+      // Send updated inventory to client
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+      
+    } catch (error) {
+      console.error('Error moving item to tab:', error);
+      socket.emit('error', 'Failed to move item');
+    }
+  });
+
+  socket.on('moveItem', async (data) => {
+    const { inventoryId, toTab } = data;
+    if (!socket.characterId) return;
+
+    try {
+      // Move item to new tab
+      await db.promise().query(
+        'UPDATE player_inventory SET tab_id = ? WHERE id = ? AND character_id = ?',
+        [toTab, inventoryId, socket.characterId]
+      );
+
+      // Send updated inventory to client
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+      
+    } catch (error) {
+      console.error('Error moving item:', error);
+      socket.emit('error', 'Failed to move item');
+    }
+  });
+
+  socket.on('dropItem', async (data) => {
+    const { inventoryId, quantity = 1 } = data;
+    if (!socket.characterId) return;
+
+    try {
+      const [item] = await db.promise().query(
+        'SELECT quantity FROM player_inventory WHERE id = ? AND character_id = ?',
+        [inventoryId, socket.characterId]
+      );
+
+      if (item.length === 0) return;
+
+      if (item[0].quantity > quantity) {
+        // Reduce quantity
+        await db.promise().query(
+          'UPDATE player_inventory SET quantity = quantity - ? WHERE id = ?',
+          [quantity, inventoryId]
+        );
+      } else {
+        // Remove item completely
+        await db.promise().query(
+          'DELETE FROM player_inventory WHERE id = ?',
+          [inventoryId]
+        );
+      }
+
+      // Send updated inventory to client
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+      
+    } catch (error) {
+      console.error('Error dropping item:', error);
+      socket.emit('error', 'Failed to drop item');
+    }
+  });
+
   socket.on('zoomChanged', (newZoom) => {
     if (!players[socket.id]) return;
     const player = players[socket.id];
@@ -882,6 +1209,15 @@ setInterval(async () => {
       if (playerData) {
         const player = JSON.parse(playerData);
         const characterId = key.split(':')[1];
+        
+        // Check if character still exists in database
+        const [charRows] = await db.promise().query('SELECT 1 FROM characters WHERE id = ?', [characterId]);
+        if (charRows.length === 0) {
+          // Character no longer exists, remove from Redis
+          await redisClient.del(key);
+          continue;
+        }
+        
         // Use transaction for atomic updates
         db.getConnection((err, connection) => {
           if (err) {

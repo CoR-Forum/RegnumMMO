@@ -43,6 +43,55 @@ const gameData = {
     'Utghar Mage': { conc: 9, const: 9, dex: 10, int: 16, str: 11 },
     'Utghar Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 }
   },
+  items: [
+    // Weapons - not stackable
+    { name: 'Wooden Sword', description: 'A simple wooden training sword', type: 'weapon', rarity: 'common', value: 10, level_requirement: 1, stackable: false },
+    { name: 'Iron Sword', description: 'A sturdy iron blade', type: 'weapon', rarity: 'common', value: 50, level_requirement: 5, stackable: false },
+    { name: 'Steel Longsword', description: 'A finely crafted steel sword', type: 'weapon', rarity: 'uncommon', value: 150, level_requirement: 15, stackable: false },
+    { name: 'Elven Bow', description: 'A graceful bow made from ancient wood', type: 'weapon', rarity: 'rare', value: 300, level_requirement: 20, stackable: false },
+    { name: 'Dwarven Axe', description: 'A heavy axe forged in dwarven fires', type: 'weapon', rarity: 'rare', value: 350, level_requirement: 25, stackable: false },
+    
+    // Armor - not stackable
+    { name: 'Leather Armor', description: 'Basic leather protection', type: 'armor', rarity: 'common', value: 25, level_requirement: 1, stackable: false },
+    { name: 'Chain Mail', description: 'Interlocking metal rings', type: 'armor', rarity: 'common', value: 75, level_requirement: 10, stackable: false },
+    { name: 'Plate Armor', description: 'Heavy metal plates for maximum protection', type: 'armor', rarity: 'uncommon', value: 200, level_requirement: 20, stackable: false },
+    
+    // Consumables - stackable
+    { name: 'Health Potion', description: 'Restores 50 health points', type: 'consumable', rarity: 'common', value: 15, level_requirement: 1, stackable: true },
+    { name: 'Mana Potion', description: 'Restores 50 mana points', type: 'consumable', rarity: 'common', value: 15, level_requirement: 1, stackable: true },
+    { name: 'Greater Health Potion', description: 'Restores 150 health points', type: 'consumable', rarity: 'uncommon', value: 45, level_requirement: 10, stackable: true },
+    { name: 'Bread', description: 'A loaf of fresh bread', type: 'consumable', rarity: 'common', value: 5, level_requirement: 1, stackable: true },
+    { name: 'Cheese', description: 'A wheel of aged cheese', type: 'consumable', rarity: 'common', value: 8, level_requirement: 1, stackable: true }
+  ],
+  shopItems: [
+    // Syrtis merchants
+    { npcName: 'Basilissa', itemName: 'Wooden Sword', quantity: 10, price: 12 },
+    { npcName: 'Basilissa', itemName: 'Leather Armor', quantity: 5, price: 30 },
+    { npcName: 'Basilissa', itemName: 'Health Potion', quantity: 20, price: 18 },
+    { npcName: 'Basilissa', itemName: 'Bread', quantity: 50, price: 6 },
+    { npcName: 'Lirael', itemName: 'Iron Sword', quantity: 3, price: 60 },
+    { npcName: 'Lirael', itemName: 'Chain Mail', quantity: 2, price: 90 },
+    { npcName: 'Lirael', itemName: 'Mana Potion', quantity: 15, price: 18 },
+    { npcName: 'Lirael', itemName: 'Cheese', quantity: 30, price: 10 },
+    
+    // Ignis merchants
+    { npcName: 'Morrigan', itemName: 'Steel Longsword', quantity: 2, price: 180 },
+    { npcName: 'Morrigan', itemName: 'Plate Armor', quantity: 1, price: 250 },
+    { npcName: 'Morrigan', itemName: 'Greater Health Potion', quantity: 10, price: 50 },
+    { npcName: 'Morrigan', itemName: 'Elven Bow', quantity: 1, price: 350 },
+    { npcName: 'Nyx', itemName: 'Iron Sword', quantity: 5, price: 55 },
+    { npcName: 'Nyx', itemName: 'Chain Mail', quantity: 3, price: 85 },
+    { npcName: 'Nyx', itemName: 'Health Potion', quantity: 25, price: 17 },
+    
+    // Alsius merchants
+    { npcName: 'Astrid', itemName: 'Dwarven Axe', quantity: 1, price: 400 },
+    { npcName: 'Astrid', itemName: 'Plate Armor', quantity: 2, price: 230 },
+    { npcName: 'Astrid', itemName: 'Greater Health Potion', quantity: 8, price: 48 },
+    { npcName: 'Sigrid', itemName: 'Steel Longsword', quantity: 3, price: 170 },
+    { npcName: 'Sigrid', itemName: 'Chain Mail', quantity: 4, price: 80 },
+    { npcName: 'Sigrid', itemName: 'Mana Potion', quantity: 20, price: 16 },
+    { npcName: 'Sigrid', itemName: 'Bread', quantity: 40, price: 5 }
+  ],
   npcs: [
     // Syrtis NPCs
     { name: 'Irehok', level: 60, realm: 'Syrtis', position: { x: 1156, y: 4592 }, npc_type: 'quest_giver', roaming_type: 'static', has_quests: true },

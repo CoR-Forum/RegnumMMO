@@ -273,3 +273,169 @@ body {
   font-size: 14px;
 }
 
+/* Shop and Inventory Styles */
+#shop-modal, #inventory-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1002;
+  justify-content: center;
+  align-items: center;
+}
+
+#shop-modal.show, #inventory-modal.show {
+  display: flex;
+}
+
+#shop-content, #inventory-content {
+  background: #333;
+  padding: 20px;
+  border-radius: 10px;
+  width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  text-align: center;
+}
+
+#shop-items, #inventory-items {
+  margin-top: 20px;
+}
+
+.shop-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.shop-item-list li {
+  background: #555;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shop-item-list .item-name {
+  font-weight: bold;
+  color: #fff;
+}
+
+.shop-item-list .item-price {
+  color: #ccc;
+  font-size: 14px;
+}
+
+.shop-item-list button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.shop-item-list button:hover {
+  background: #45a049;
+}
+
+#inventory-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tab-button {
+  background: #555;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  margin: 0 5px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.tab-button:hover, .tab-button.active {
+  background: #777;
+}
+
+.tab-button.drag-over {
+  background: #4CAF50;
+  border: 2px solid #fff;
+}
+
+.inventory-item.dragging {
+  opacity: 0.5;
+}
+
+#inventory-items {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.inventory-item {
+  background: #555;
+  padding: 10px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.inventory-item:hover {
+  background: #777;
+}
+
+.inventory-item .item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.inventory-item .item-name {
+  font-weight: bold;
+  color: #fff;
+}
+
+.inventory-item .item-details {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.inventory-item .item-quantity {
+  background: #333;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  min-width: 30px;
+  text-align: center;
+}
+
+#inventory-btn {
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  z-index: 1000;
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#inventory-btn:hover {
+  background: #555;
+}

@@ -27,6 +27,7 @@ class RegnumMap {
     this.currentPlayer = null;
     this.playerSpeed = 0; // Will be set by server
     this.latency = 0;
+    this.currentShopNpcId = null;
     this.init();
     this.initUI();
   }
@@ -166,6 +167,55 @@ class RegnumMap {
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
 
     if (this.switchCharacterBtn) this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
+
+    // Shop and inventory elements
+    this.shopModal = document.getElementById('shop-modal');
+    this.closeShopModal = document.getElementById('close-shop-modal');
+    this.shopTitle = document.getElementById('shop-title');
+    this.shopItems = document.getElementById('shop-items');
+    this.inventoryModal = document.getElementById('inventory-modal');
+    this.closeInventoryModal = document.getElementById('close-inventory-modal');
+    this.inventoryTabs = document.getElementById('inventory-tabs');
+    this.inventoryItems = document.getElementById('inventory-items');
+    this.inventoryBtn = document.getElementById('inventory-btn');
+    this.currentInventoryTab = 1;
+
+    if (this.closeShopModal) this.closeShopModal.addEventListener('click', () => this.hideShopModal());
+    if (this.closeInventoryModal) this.closeInventoryModal.addEventListener('click', () => this.hideInventoryModal());
+    if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
+    
+    // Inventory tab switching and drag/drop
+    if (this.inventoryTabs) {
+      this.inventoryTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tab-button')) {
+          const tabId = parseInt(e.target.dataset.tab);
+          this.switchInventoryTab(tabId);
+        }
+      });
+      
+      // Add drag and drop for tabs
+      const tabButtons = this.inventoryTabs.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        button.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          button.classList.add('drag-over');
+        });
+        
+        button.addEventListener('dragleave', (e) => {
+          button.classList.remove('drag-over');
+        });
+        
+        button.addEventListener('drop', (e) => {
+          e.preventDefault();
+          button.classList.remove('drag-over');
+          const itemData = JSON.parse(e.dataTransfer.getData('text/plain'));
+          const targetTab = parseInt(button.dataset.tab);
+          if (targetTab !== itemData.tab_id) {
+            this.moveItemToTab(itemData, targetTab);
+          }
+        });
+      });
+    }
 
     // Realm selection elements
     this.realmModal = document.getElementById('realm-modal');
@@ -611,6 +661,24 @@ class RegnumMap {
       if (this.healthText) this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
       if (this.healthRegen) this.healthRegen.textContent = `(+${data.regen}/s)`;
     });
+
+    this.socket.on('openShop', (data) => {
+      this.showShopModal(data.npcId, data.npcName);
+    });
+
+    this.socket.on('shopItems', (data) => {
+      this.displayShopItems(data.npcId, data.items);
+    });
+
+    this.socket.on('itemPurchased', (data) => {
+      alert(`Purchased ${data.quantity}x ${data.itemName}!`);
+      // Refresh inventory
+      this.socket.emit('getInventory');
+    });
+
+    this.socket.on('inventoryUpdate', (inventory) => {
+      this.displayInventoryItems(inventory);
+    });
   }
 
   addPlayer(id, character, position, isCurrent = false) {
@@ -794,6 +862,182 @@ class RegnumMap {
   // Public API methods
   getMap() {
     return this.map;
+  }
+
+  showShopModal(npcId, npcName) {
+    if (this.shopModal && this.shopTitle) {
+      this.shopTitle.textContent = `${npcName}'s Shop`;
+      this.shopModal.classList.add('show');
+      this.currentShopNpcId = npcId;
+      // Request shop items
+      this.socket.emit('getShopItems', npcId);
+    }
+  }
+
+  hideShopModal() {
+    if (this.shopModal) {
+      this.shopModal.classList.remove('show');
+      this.currentShopNpcId = null;
+    }
+  }
+
+  displayShopItems(npcId, items) {
+    if (!this.shopItems) return;
+    this.shopItems.innerHTML = '';
+    if (items.length === 0) {
+      this.shopItems.innerHTML = '<p>No items available in this shop.</p>';
+      return;
+    }
+    const ul = document.createElement('ul');
+    ul.className = 'shop-item-list';
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'shop-item';
+      li.innerHTML = `
+        <div class="item-name">${item.name}</div>
+        <div class="item-price">${item.price} gold</div>
+        <button class="buy-btn" data-item-id="${item.id}">Buy</button>
+      `;
+      const buyBtn = li.querySelector('.buy-btn');
+      buyBtn.addEventListener('click', () => {
+        this.socket.emit('buyItem', { npcId, itemId: item.item_id });
+      });
+      ul.appendChild(li);
+    });
+    this.shopItems.appendChild(ul);
+  }
+
+  showInventoryModal() {
+    if (this.inventoryModal) {
+      this.inventoryModal.classList.add('show');
+      // Request inventory
+      this.socket.emit('getInventory');
+    }
+  }
+
+  hideInventoryModal() {
+    if (this.inventoryModal) {
+      this.inventoryModal.classList.remove('show');
+    }
+  }
+
+  displayInventoryItems(inventory) {
+    if (!this.inventoryItems) return;
+    
+    // Clear existing items
+    this.inventoryItems.innerHTML = '';
+    
+    // Filter items for current tab
+    const tabItems = inventory.filter(item => item.tab_id === this.currentInventoryTab);
+    
+    if (tabItems.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'inventory-item';
+      emptyDiv.innerHTML = '<div class="item-info"><div class="item-name">No items in this tab</div></div>';
+      this.inventoryItems.appendChild(emptyDiv);
+      return;
+    }
+    
+    // Display items as list
+    tabItems.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'inventory-item';
+      itemDiv.draggable = true;
+      itemDiv.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${item.name}</div>
+          <div class="item-details">${item.type} - ${item.rarity}</div>
+        </div>
+        <div class="item-quantity">${item.stackable ? 'x' + item.quantity : ''}</div>
+      `;
+      
+      // Add drag start handler
+      itemDiv.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify(item));
+        itemDiv.classList.add('dragging');
+      });
+      
+      itemDiv.addEventListener('dragend', (e) => {
+        itemDiv.classList.remove('dragging');
+      });
+      
+      // Remove click handler for moving - now done by drag/drop
+      // itemDiv.addEventListener('click', () => {
+      //   this.showItemContextMenu(item);
+      // });
+      
+      // Add right-click handler for dropping items
+      itemDiv.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.dropItem(item.id, 1);
+      });
+      
+      this.inventoryItems.appendChild(itemDiv);
+    });
+  }
+
+  switchInventoryTab(tabId) {
+    this.currentInventoryTab = tabId;
+    
+    // Update tab button styles
+    const tabButtons = this.inventoryTabs.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+      if (parseInt(button.dataset.tab) === tabId) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+    
+    // Refresh inventory display
+    this.socket.emit('getInventory');
+  }
+
+  // showItemContextMenu is no longer used - drag and drop handles moving
+  // showItemContextMenu(item) {
+  //   // Create a simple context menu for moving items between tabs
+  //   const menuOptions = [];
+  //   for (let tab = 1; tab <= 5; tab++) {
+  //     if (tab !== this.currentInventoryTab) {
+  //       menuOptions.push({
+  //         label: `Move to Tab ${tab}`,
+  //         action: () => this.moveItemToTab(item, tab)
+  //       });
+  //     }
+  //   }
+  //   
+  //   // Simple implementation - just show first available option
+  //   if (menuOptions.length > 0) {
+  //     if (confirm(`Move ${item.name} to ${menuOptions[0].label.toLowerCase()}?`)) {
+  //       menuOptions[0].action();
+  //     }
+  //   }
+  // }
+
+  moveItemToTab(item, targetTab) {
+    // Move item to new tab
+    this.socket.emit('moveItemToTab', {
+      inventoryId: item.id,
+      toTab: targetTab
+    });
+  }
+
+  // moveItem is no longer used - drag and drop handles moving
+  // moveItem(itemId, fromTab, toTab) {
+  //   this.socket.emit('moveItem', {
+  //     itemId,
+  //     fromTab,
+  //     toTab
+  //   });
+  // }
+
+  dropItem(inventoryId, quantity) {
+    if (confirm('Are you sure you want to drop this item?')) {
+      this.socket.emit('dropItem', {
+        inventoryId,
+        quantity
+      });
+    }
   }
 }
 

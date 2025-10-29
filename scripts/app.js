@@ -28,6 +28,9 @@ class RegnumMap {
     this.playerSpeed = 0; // Will be set by server
     this.latency = 0;
     this.currentShopNpcId = null;
+    this.isMoving = false;
+    this.footstepInterval = null;
+    this.nextStepSound = 'step1';
     this.init();
     this.initUI();
   }
@@ -379,6 +382,8 @@ class RegnumMap {
       this.socket.disconnect();
       this.socket = null;
     }
+    // Stop footstep sounds
+    this.stopFootstepSounds();
     // Clear players
     Object.keys(this.players).forEach(id => this.removePlayer(id));
     this.currentPlayer = null;
@@ -631,6 +636,8 @@ class RegnumMap {
       this.socket.disconnect();
       this.socket = null;
     }
+    // Stop footstep sounds
+    this.stopFootstepSounds();
     // Clear players
     Object.keys(this.players).forEach(id => this.removePlayer(id));
     this.currentPlayer = null;
@@ -896,17 +903,58 @@ class RegnumMap {
       if (!this.keys[e.key.toLowerCase()]) {
         this.keys[e.key.toLowerCase()] = true;
         this.socket.emit('keyDown', { key: e.key.toLowerCase() });
+        
+        // Start footstep sounds if movement key pressed and not already moving
+        if (this.isMovementKey(e.key.toLowerCase()) && !this.isMoving) {
+          this.startFootstepSounds();
+        }
       }
     });
     document.addEventListener('keyup', (e) => {
       this.keys[e.key.toLowerCase()] = false;
       this.socket.emit('keyUp', { key: e.key.toLowerCase() });
+      
+      // Stop footstep sounds if no movement keys are pressed
+      if (!this.isAnyMovementKeyPressed()) {
+        this.stopFootstepSounds();
+      }
     });
     this.map.on('zoomend', () => {
       const zoom = this.map.getZoom();
       this.updateZoomDisplay(zoom);
       if (this.socket) this.socket.emit('zoomChanged', zoom);
     });
+  }
+
+  isMovementKey(key) {
+    return ['w', 'a', 's', 'd'].includes(key.toLowerCase());
+  }
+
+  isAnyMovementKeyPressed() {
+    return ['w', 'a', 's', 'd'].some(key => this.keys[key]);
+  }
+
+  startFootstepSounds() {
+    this.isMoving = true;
+    this.nextStepSound = 'step1';
+    
+    // Play first step immediately
+    this.playSound(this.nextStepSound);
+    this.nextStepSound = 'step2';
+    
+    // Set up interval for alternating steps (adjust timing based on walking speed)
+    this.footstepInterval = setInterval(() => {
+      this.playSound(this.nextStepSound);
+      this.nextStepSound = this.nextStepSound === 'step1' ? 'step2' : 'step1';
+    }, 400); // 400ms between steps - adjust for walking cadence
+  }
+
+  stopFootstepSounds() {
+    this.isMoving = false;
+    if (this.footstepInterval) {
+      clearInterval(this.footstepInterval);
+      this.footstepInterval = null;
+    }
   }
 
   moveToPosition(x, y) {
@@ -1336,7 +1384,9 @@ class RegnumMap {
           'sell': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50853-Ui%20item%20sell%201.ogg',
           'drop': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50854-Ui%20item%20destroy%201.ogg',
           'open': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50848-Ui%20widget%20click%205.ogg',
-          'close': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50847-Ui%20widget%20click%206.ogg'
+          'close': 'https://cor-forum.de/regnum/datengrab/res/SOUND/50847-Ui%20widget%20click%206.ogg',
+          'step1': 'https://cor-forum.de/regnum/datengrab/res/SOUND/56098-Movement%20step%20generic%201.ogg',
+          'step2': 'https://cor-forum.de/regnum/datengrab/res/SOUND/56099-Movement%20step%20generic%202.ogg'
         };
         soundUrl = soundUrls[soundTypeOrUrl] || soundUrls['sell'];
       }

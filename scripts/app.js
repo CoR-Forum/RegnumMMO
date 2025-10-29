@@ -133,7 +133,7 @@ class RegnumMap {
 
     this.checkLoginStatus();
     if (this.loginBtn) this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
-    if (this.closeModal) this.closeModal.addEventListener('click', () => this.hideLoginModal());
+    this.setupModalCloseHandlers(this.loginModal, this.hideLoginModal, 'close-modal');
     if (this.submitLogin) this.submitLogin.addEventListener('click', () => this.handleLogin());
 
     // Character elements
@@ -148,7 +148,7 @@ class RegnumMap {
     this.createCharacterBtn = document.getElementById('create-character');
     this.characterMessage = document.getElementById('character-message');
 
-    if (this.closeCharacterModal) this.closeCharacterModal.addEventListener('click', () => this.hideCharacterModal());
+    this.setupModalCloseHandlers(this.characterModal, this.hideCharacterModal, 'close-character-modal');
     if (this.createCharacterBtn) this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
     if (this.charRace) this.charRace.addEventListener('change', () => this.populateClasses());
 
@@ -196,16 +196,19 @@ class RegnumMap {
     this.draggedWindow = null;
     this.dragOffset = { x: 0, y: 0 };
 
-    if (this.closeShopModal) this.closeShopModal.addEventListener('click', () => this.hideShopModal());
+    this.setupModalCloseHandlers(this.shopModal, this.hideShopModal, 'close-shop-modal');
     if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.confirmTransactionAction());
     if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.clearTransactionList());
     
     // Inventory event listeners
-    if (this.closeInventoryModal) this.closeInventoryModal.addEventListener('click', () => this.hideInventoryModal());
+    this.setupModalCloseHandlers(this.inventoryModal, this.hideInventoryModal, 'close-inventory-modal');
     if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
     
-    // Window dragging event listeners
-    this.setupWindowDragging();
+  // Initialize admin panel
+  this.initAdminPanel();
+
+  // Window dragging event listeners (call after admin panel elements exist)
+  this.setupWindowDragging();
     
     // Inventory tab switching
     if (this.inventoryTabs) {
@@ -307,10 +310,7 @@ class RegnumMap {
     this.closeRealmModal = document.getElementById('close-realm-modal');
     this.realmOptions = document.querySelectorAll('.realm-option');
 
-    if (this.closeRealmModal) this.closeRealmModal.addEventListener('click', () => this.hideRealmModal());
-    if (this.realmModal) this.realmModal.addEventListener('click', (e) => {
-      if (e.target === this.realmModal) this.hideRealmModal();
-    });
+    this.setupModalCloseHandlers(this.realmModal, this.hideRealmModal, 'close-realm-modal');
     this.realmOptions.forEach(option => {
       if (option) option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
     });
@@ -329,6 +329,9 @@ class RegnumMap {
         .then(data => {
           if (data.valid) {
             this.updateLoginBtn(true, user.username);
+            // Store admin status
+            user.isAdmin = data.isAdmin;
+            localStorage.setItem('user', JSON.stringify(user));
             this.checkExistingCharacters();
           } else {
             // Session invalid, clear local storage
@@ -392,6 +395,22 @@ class RegnumMap {
     alert('Logged out successfully.');
   }
 
+  // Generic modal close handler setup
+  setupModalCloseHandlers(modalElement, hideFunction, closeButtonId = null) {
+    if (!modalElement) return;
+
+    // Overlay click handler
+    modalElement.addEventListener('click', (e) => {
+      if (e.target === modalElement) hideFunction.call(this);
+    });
+
+    // Close button handler (if provided)
+    if (closeButtonId) {
+      const closeBtn = document.getElementById(closeButtonId);
+      if (closeBtn) closeBtn.addEventListener('click', () => hideFunction.call(this));
+    }
+  }
+
   showLoginModal() {
     if (this.loginModal) {
       this.loginModal.classList.add('show');
@@ -429,7 +448,7 @@ class RegnumMap {
 
       if (data.success) {
         this.loginMessage.textContent = 'Login successful!';
-        // Store user data or redirect
+        // Store user data including admin status
         localStorage.setItem('user', JSON.stringify(data));
         this.updateLoginBtn(true, data.username);
         setTimeout(async () => {
@@ -1439,9 +1458,10 @@ class RegnumMap {
       }
     }, 3000);
   }
+  
 
   setupWindowDragging() {
-    const windows = [this.shopModal, this.inventoryModal];
+    const windows = [this.shopModal, this.inventoryModal, this.adminModal];
     
     windows.forEach(window => {
       if (!window) return;
@@ -1452,8 +1472,19 @@ class RegnumMap {
       header.addEventListener('mousedown', (e) => {
         this.draggedWindow = window;
         const rect = window.getBoundingClientRect();
+        
+        // Calculate drag offset BEFORE changing positioning
         this.dragOffset.x = e.clientX - rect.left;
         this.dragOffset.y = e.clientY - rect.top;
+        
+        // Ensure the window has absolute positioning
+        if (window.style.position !== 'absolute' && window.style.position !== 'fixed') {
+          window.style.position = 'absolute';
+          // Set the current visual position and remove any transforms
+          window.style.left = rect.left + 'px';
+          window.style.top = rect.top + 'px';
+          window.style.transform = 'none';
+        }
         
         // Bring window to front
         window.style.zIndex = '1004';
@@ -1472,11 +1503,11 @@ class RegnumMap {
     const newX = e.clientX - this.dragOffset.x;
     const newY = e.clientY - this.dragOffset.y;
     
-    // Allow windows to be dragged out of viewport but keep 30px visible
-    const minX = -this.draggedWindow.offsetWidth + 30;
-    const maxX = window.innerWidth - 30;
-    const minY = -this.draggedWindow.offsetHeight + 30;
-    const maxY = window.innerHeight - 30;
+    // Less aggressive clamping - allow some movement outside viewport but prevent complete disappearance
+    const minX = -this.draggedWindow.offsetWidth + 50;
+    const maxX = window.innerWidth - 50;
+    const minY = -this.draggedWindow.offsetHeight + 50;
+    const maxY = window.innerHeight - 50;
     
     const clampedX = Math.max(minX, Math.min(newX, maxX));
     const clampedY = Math.max(minY, Math.min(newY, maxY));
@@ -1495,6 +1526,661 @@ class RegnumMap {
     document.removeEventListener('mousemove', this.handleWindowDrag);
     document.removeEventListener('mouseup', this.handleWindowDragEnd);
   };
+
+  // Admin Panel Methods
+  initAdminPanel() {
+    // Admin elements
+    this.adminBtn = document.getElementById('admin-btn');
+    this.adminModal = document.getElementById('admin-modal');
+    this.adminTabs = document.getElementById('admin-tabs');
+    this.adminPanelContent = document.getElementById('admin-panel-content');
+    this.npcEditModal = document.getElementById('npc-edit-modal');
+    this.itemEditModal = document.getElementById('item-edit-modal');
+    this.shopItemEditModal = document.getElementById('shop-item-edit-modal');
+
+    // Check if user is admin and show/hide admin button
+    this.checkAdminStatus();
+
+    if (this.adminBtn) this.adminBtn.addEventListener('click', () => this.showAdminModal());
+    this.setupModalCloseHandlers(this.adminModal, this.hideAdminModal, 'close-admin-modal');
+
+    // Tab switching
+    if (this.adminTabs) {
+      this.adminTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('admin-tab-button')) {
+          const tabName = e.target.dataset.tab;
+          this.switchAdminTab(tabName);
+        }
+      });
+    }
+
+    // Edit modal close handlers
+    if (this.npcEditModal) this.npcEditModal.addEventListener('click', (e) => {
+      if (e.target === this.npcEditModal) this.hideNpcEditModal();
+    });
+    const closeNpcEditModalBtn = document.getElementById('close-npc-edit-modal');
+    if (closeNpcEditModalBtn) closeNpcEditModalBtn.addEventListener('click', () => this.hideNpcEditModal());
+
+    if (this.itemEditModal) this.itemEditModal.addEventListener('click', (e) => {
+      if (e.target === this.itemEditModal) this.hideItemEditModal();
+    });
+    const closeItemEditModalBtn = document.getElementById('close-item-edit-modal');
+    if (closeItemEditModalBtn) closeItemEditModalBtn.addEventListener('click', () => this.hideItemEditModal());
+
+    if (this.shopItemEditModal) this.shopItemEditModal.addEventListener('click', (e) => {
+      if (e.target === this.shopItemEditModal) this.hideShopItemEditModal();
+    });
+    const closeShopItemEditModalBtn = document.getElementById('close-shop-item-edit-modal');
+    if (closeShopItemEditModalBtn) closeShopItemEditModalBtn.addEventListener('click', () => this.hideShopItemEditModal());
+
+    // Form submission handlers
+    const npcForm = document.getElementById('npc-edit-form');
+    if (npcForm) npcForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.saveNpc();
+    });
+
+    const itemForm = document.getElementById('item-edit-form');
+    if (itemForm) itemForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.saveItem();
+    });
+
+    const shopItemForm = document.getElementById('shop-item-edit-form');
+    if (shopItemForm) shopItemForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.saveShopItem();
+    });
+
+    // Delete button handlers
+    const deleteNpcBtn = document.getElementById('delete-npc-btn');
+    if (deleteNpcBtn) deleteNpcBtn.addEventListener('click', () => {
+      const npcId = document.getElementById('npc-edit-form')['npc-id'].value;
+      if (npcId) this.deleteNpc(npcId);
+    });
+
+    const deleteItemBtn = document.getElementById('delete-item-btn');
+    if (deleteItemBtn) deleteItemBtn.addEventListener('click', () => {
+      const itemId = document.getElementById('item-edit-form')['item-id'].value;
+      if (itemId) this.deleteItem(itemId);
+    });
+
+    const deleteShopItemBtn = document.getElementById('delete-shop-item-btn');
+    if (deleteShopItemBtn) deleteShopItemBtn.addEventListener('click', () => {
+      const shopItemId = document.getElementById('shop-item-edit-form')['shop-item-id'].value;
+      if (shopItemId) this.deleteShopItem(shopItemId);
+    });
+
+    // Create button handlers
+    const createNpcBtn = document.getElementById('create-npc-btn');
+    if (createNpcBtn) createNpcBtn.addEventListener('click', () => this.showNpcEditModal());
+
+    const createItemBtn = document.getElementById('create-item-btn');
+    if (createItemBtn) createItemBtn.addEventListener('click', () => this.showItemEditModal());
+  }
+
+  checkAdminStatus() {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (user && user.isAdmin) {
+      if (this.adminBtn) this.adminBtn.style.display = 'block';
+    } else {
+      if (this.adminBtn) this.adminBtn.style.display = 'none';
+    }
+  }
+
+  showAdminModal() {
+    if (this.adminModal) {
+      this.adminModal.classList.add('show');
+      this.switchAdminTab('npcs'); // Default to NPCs tab
+    }
+  }
+
+  hideAdminModal() {
+    if (this.adminModal) {
+      this.adminModal.classList.remove('show');
+    }
+  }
+
+  switchAdminTab(tabName) {
+    // Update tab button styles
+    const tabButtons = this.adminTabs.querySelectorAll('.admin-tab-button');
+    tabButtons.forEach(button => {
+      if (button.dataset.tab === tabName) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+
+    // Show/hide tab content
+    const tabContents = this.adminPanelContent.querySelectorAll('.admin-tab-content');
+    tabContents.forEach(content => {
+      if (content.id === `${tabName}-tab`) {
+        content.classList.add('active');
+      } else {
+        content.classList.remove('active');
+      }
+    });
+
+    // Load data for the selected tab
+    this.loadAdminData(tabName);
+  }
+
+  async loadAdminData(tabName) {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    try {
+      let response;
+      switch (tabName) {
+        case 'npcs':
+          response = await fetch('/api/admin/npcs', {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+          });
+          const npcs = await response.json();
+          this.displayNpcs(npcs);
+          break;
+        case 'shops':
+          response = await fetch('/api/admin/shops', {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+          });
+          const shops = await response.json();
+          this.displayShops(shops);
+          break;
+        case 'players':
+          response = await fetch('/api/admin/players', {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+          });
+          const players = await response.json();
+          this.displayPlayers(players);
+          break;
+        case 'items':
+          response = await fetch('/api/admin/items', {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+          });
+          const items = await response.json();
+          this.displayItems(items);
+          break;
+      }
+    } catch (error) {
+      console.error('Error loading admin data:', error);
+    }
+  }
+
+  displayNpcs(npcs) {
+    const container = document.getElementById('npcs-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (npcs.length === 0) {
+      container.innerHTML = '<p>No NPCs found.</p>';
+      return;
+    }
+
+    npcs.forEach(npc => {
+      const npcDiv = document.createElement('div');
+      npcDiv.className = 'npc-item';
+      npcDiv.innerHTML = `
+        <div class="npc-info">
+          <div class="npc-name">${npc.name}</div>
+          <div class="npc-details">Level ${npc.level} - ${npc.realm} - ${npc.npc_type}</div>
+        </div>
+        <div class="npc-actions">
+          <button class="edit-btn" data-id="${npc.id}">Edit</button>
+          <button class="delete-btn" data-id="${npc.id}">Delete</button>
+        </div>
+      `;
+
+      // Add event listeners
+      const editBtn = npcDiv.querySelector('.edit-btn');
+      const deleteBtn = npcDiv.querySelector('.delete-btn');
+
+      editBtn.addEventListener('click', () => this.showNpcEditModal(npc));
+      deleteBtn.addEventListener('click', () => this.deleteNpc(npc.id));
+
+      container.appendChild(npcDiv);
+    });
+  }
+
+  displayShops(shops) {
+    const container = document.getElementById('shops-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (shops.length === 0) {
+      container.innerHTML = '<p>No shops found.</p>';
+      return;
+    }
+
+    shops.forEach(shop => {
+      const shopDiv = document.createElement('div');
+      shopDiv.className = 'shop-item';
+      shopDiv.innerHTML = `
+        <div class="shop-info">
+          <div class="shop-name">${shop.name}</div>
+          <div class="shop-details">NPC ID: ${shop.npc_id} - ${shop.shop_type}</div>
+        </div>
+        <div class="shop-actions">
+          <button class="edit-btn" data-id="${shop.id}">Edit Items</button>
+        </div>
+      `;
+
+      // Add event listeners
+      const editBtn = shopDiv.querySelector('.edit-btn');
+      editBtn.addEventListener('click', () => this.showShopEditModal(shop));
+
+      container.appendChild(shopDiv);
+    });
+  }
+
+  displayPlayers(players) {
+    const container = document.getElementById('players-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (players.length === 0) {
+      container.innerHTML = '<p>No players found.</p>';
+      return;
+    }
+
+    players.forEach(player => {
+      const playerDiv = document.createElement('div');
+      playerDiv.className = 'player-item';
+      playerDiv.innerHTML = `
+        <div class="player-info">
+          <div class="player-name">${player.name}</div>
+          <div class="player-details">Level ${player.level} - ${player.realm} ${player.race} ${player.class}</div>
+        </div>
+        <div class="player-actions">
+          <button class="edit-btn" data-id="${player.id}">Edit</button>
+          <button class="delete-btn" data-id="${player.id}">Delete</button>
+        </div>
+      `;
+
+      // Add event listeners
+      const editBtn = playerDiv.querySelector('.edit-btn');
+      const deleteBtn = playerDiv.querySelector('.delete-btn');
+
+      editBtn.addEventListener('click', () => this.showPlayerEditModal(player));
+      deleteBtn.addEventListener('click', () => this.deletePlayer(player.id));
+
+      container.appendChild(playerDiv);
+    });
+  }
+
+  displayItems(items) {
+    const container = document.getElementById('items-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (items.length === 0) {
+      container.innerHTML = '<p>No items found.</p>';
+      return;
+    }
+
+    items.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'item-item';
+      itemDiv.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${item.name}</div>
+          <div class="item-details">${item.type} - ${item.rarity}</div>
+        </div>
+        <div class="item-actions">
+          <button class="edit-btn" data-id="${item.id}">Edit</button>
+          <button class="delete-btn" data-id="${item.id}">Delete</button>
+        </div>
+      `;
+
+      // Add event listeners
+      const editBtn = itemDiv.querySelector('.edit-btn');
+      const deleteBtn = itemDiv.querySelector('.delete-btn');
+
+      editBtn.addEventListener('click', () => this.showItemEditModal(item));
+      deleteBtn.addEventListener('click', () => this.deleteItem(item.id));
+
+      container.appendChild(itemDiv);
+    });
+  }
+
+  showNpcEditModal(npc = null) {
+    if (!this.npcEditModal) return;
+
+    const form = document.getElementById('npc-edit-form');
+    if (!form) return;
+
+    // Populate form with NPC data or clear for new NPC
+    if (npc && typeof npc === 'object') {
+      // Support both DB rows (x,y) and objects with position { x, y }
+      const posX = (npc.position && npc.position.x) ?? npc.x ?? '';
+      const posY = (npc.position && npc.position.y) ?? npc.y ?? '';
+      const npcType = npc.npc_type ?? npc.type ?? '';
+
+      form['npc-id'].value = npc.id ?? '';
+      form['npc-name'].value = npc.name ?? '';
+      form['npc-level'].value = npc.level ?? '';
+      form['npc-realm'].value = npc.realm ?? '';
+      form['npc-type'].value = npcType;
+      form['npc-x'].value = posX;
+      form['npc-y'].value = posY;
+      form['npc-roaming-type'].value = npc.roaming_type || 'static';
+      form['npc-roaming-radius'].value = npc.roaming_radius || 0;
+      form['npc-roaming-speed'].value = npc.roaming_speed || 0;
+      document.getElementById('npc-has-shop').checked = !!(npc.has_shop);
+      document.getElementById('npc-has-quests').checked = !!(npc.has_quests);
+      document.getElementById('npc-has-guard-duties').checked = !!(npc.has_guard_duties);
+      document.getElementById('npc-has-healing').checked = !!(npc.has_healing);
+      document.getElementById('npc-has-blacksmith').checked = !!(npc.has_blacksmith);
+      document.querySelector('#npc-edit-modal .window-title').textContent = 'Edit NPC';
+      document.getElementById('delete-npc-btn').style.display = 'block';
+    } else {
+      form.reset();
+      form['npc-id'].value = '';
+      document.querySelector('#npc-edit-modal .window-title').textContent = 'Create NPC';
+      document.getElementById('delete-npc-btn').style.display = 'none';
+    }
+
+    this.npcEditModal.classList.add('show');
+  }
+
+  hideNpcEditModal() {
+    if (this.npcEditModal) {
+      this.npcEditModal.classList.remove('show');
+    }
+  }
+
+  showItemEditModal(item = null) {
+    if (!this.itemEditModal) return;
+
+    const form = document.getElementById('item-edit-form');
+    if (!form) return;
+
+    // Populate form with item data or clear for new item
+    if (item) {
+      form['item-id'].value = item.id;
+      form['item-name'].value = item.name;
+      form['item-type'].value = item.type;
+      form['item-rarity'].value = item.rarity;
+      form['item-value'].value = item.value;
+      form['item-stackable'].checked = item.stackable;
+      document.getElementById('item-edit-title').textContent = 'Edit Item';
+      document.getElementById('delete-item-btn').style.display = 'block';
+    } else {
+      form.reset();
+      form['item-id'].value = '';
+      document.getElementById('item-edit-title').textContent = 'Create Item';
+      document.getElementById('delete-item-btn').style.display = 'none';
+    }
+
+    this.itemEditModal.classList.add('show');
+  }
+
+  hideItemEditModal() {
+    if (this.itemEditModal) {
+      this.itemEditModal.classList.remove('show');
+    }
+  }
+
+  showShopItemEditModal(shopItem = null, shopId = null) {
+    if (!this.shopItemEditModal) return;
+
+    const form = document.getElementById('shop-item-edit-form');
+    if (!form) return;
+
+    // Populate form with shop item data or clear for new shop item
+    if (shopItem) {
+      form['shop-item-id'].value = shopItem.id;
+      form['shop-item-item-id'].value = shopItem.item_id;
+      form['shop-item-price'].value = shopItem.price;
+      form['shop-id'].value = shopId;
+      document.getElementById('shop-item-edit-title').textContent = 'Edit Shop Item';
+      document.getElementById('delete-shop-item-btn').style.display = 'block';
+    } else {
+      form.reset();
+      form['shop-item-id'].value = '';
+      form['shop-id'].value = shopId;
+      document.getElementById('shop-item-edit-title').textContent = 'Add Shop Item';
+      document.getElementById('delete-shop-item-btn').style.display = 'none';
+    }
+
+    this.shopItemEditModal.classList.add('show');
+  }
+
+  hideShopItemEditModal() {
+    if (this.shopItemEditModal) {
+      this.shopItemEditModal.classList.remove('show');
+    }
+  }
+
+  showShopEditModal(shop) {
+    // For now, just show a simple alert. In a full implementation, this would show shop items
+    alert(`Shop management for ${shop.name} - NPC ID: ${shop.npc_id}`);
+    // TODO: Implement shop item management
+  }
+
+  showPlayerEditModal(player) {
+    // For now, just show a simple alert. In a full implementation, this would allow editing player stats
+    alert(`Player management for ${player.name} - Level ${player.level}`);
+    // TODO: Implement player editing
+  }
+
+  async saveNpc() {
+    const form = document.getElementById('npc-edit-form');
+    if (!form) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    const npcData = {
+      id: form['npc-id'].value || null,
+      name: form['npc-name'].value,
+      level: parseInt(form['npc-level'].value),
+      realm: form['npc-realm'].value,
+      npc_type: form['npc-type'].value,
+      position: {
+        x: parseFloat(form['npc-x'].value),
+        y: parseFloat(form['npc-y'].value)
+      },
+      roaming_type: form['npc-roaming-type'].value,
+      roaming_radius: parseInt(form['npc-roaming-radius'].value) || 0,
+      roaming_speed: parseFloat(form['npc-roaming-speed'].value) || 0,
+      has_shop: document.getElementById('npc-has-shop').checked,
+      has_quests: document.getElementById('npc-has-quests').checked,
+      has_guard_duties: document.getElementById('npc-has-guard-duties').checked,
+      has_healing: document.getElementById('npc-has-healing').checked,
+      has_blacksmith: document.getElementById('npc-has-blacksmith').checked
+    };
+
+    try {
+      const method = npcData.id ? 'PUT' : 'POST';
+      const url = npcData.id ? `/api/admin/npcs/${npcData.id}` : '/api/admin/npcs';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify(npcData)
+      });
+
+      if (response.ok) {
+        this.hideNpcEditModal();
+        this.loadAdminData('npcs');
+        alert('NPC saved successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error saving NPC: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving NPC:', error);
+      alert('Error saving NPC');
+    }
+  }
+
+  async deleteNpc(npcId) {
+    if (!confirm('Are you sure you want to delete this NPC?')) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    try {
+      const response = await fetch(`/api/admin/npcs/${npcId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+
+      if (response.ok) {
+        this.loadAdminData('npcs');
+        alert('NPC deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error deleting NPC: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting NPC:', error);
+      alert('Error deleting NPC');
+    }
+  }
+
+  async saveItem() {
+    const form = document.getElementById('item-edit-form');
+    if (!form) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    const itemData = {
+      id: form['item-id'].value || null,
+      name: form['item-name'].value,
+      type: form['item-type'].value,
+      rarity: form['item-rarity'].value,
+      value: parseInt(form['item-value'].value),
+      stackable: form['item-stackable'].checked
+    };
+
+    try {
+      const method = itemData.id ? 'PUT' : 'POST';
+      const url = itemData.id ? `/api/admin/items/${itemData.id}` : '/api/admin/items';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify(itemData)
+      });
+
+      if (response.ok) {
+        this.hideItemEditModal();
+        this.loadAdminData('items');
+        alert('Item saved successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error saving item: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving item:', error);
+      alert('Error saving item');
+    }
+  }
+
+  async deleteItem(itemId) {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    try {
+      const response = await fetch(`/api/admin/items/${itemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+
+      if (response.ok) {
+        this.loadAdminData('items');
+        alert('Item deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error deleting item: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Error deleting item');
+    }
+  }
+
+  async saveShopItem() {
+    const form = document.getElementById('shop-item-edit-form');
+    if (!form) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    const shopItemData = {
+      id: form['shop-item-id'].value || null,
+      item_id: parseInt(form['shop-item-item-id'].value),
+      price: parseInt(form['shop-item-price'].value),
+      shop_id: parseInt(form['shop-id'].value)
+    };
+
+    try {
+      const method = shopItemData.id ? 'PUT' : 'POST';
+      const url = shopItemData.id ? `/api/admin/shop-items/${shopItemData.id}` : '/api/admin/shop-items';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify(shopItemData)
+      });
+
+      if (response.ok) {
+        this.hideShopItemEditModal();
+        this.loadAdminData('shops');
+        alert('Shop item saved successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error saving shop item: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error saving shop item:', error);
+      alert('Error saving shop item');
+    }
+  }
+
+  async deleteShopItem(shopItemId) {
+    if (!confirm('Are you sure you want to delete this shop item?')) return;
+
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user || !user.token) return;
+
+    try {
+      const response = await fetch(`/api/admin/shop-items/${shopItemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.token}` }
+      });
+
+      if (response.ok) {
+        this.hideShopItemEditModal();
+        this.loadAdminData('shops');
+        alert('Shop item deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error deleting shop item: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting shop item:', error);
+      alert('Error deleting shop item');
+    }
+  }
 }
 
 // Initialize the map when the DOM is ready

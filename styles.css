@@ -658,3 +658,256 @@ body {
 #inventory-btn:hover {
   background: #555;
 }
+
+/* Admin Panel Styles */
+#admin-btn {
+  position: absolute;
+  top: 90px;
+  right: 10px;
+  z-index: 1000;
+  background: #8B0000;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#admin-btn:hover {
+  background: #A00000;
+}
+
+#admin-modal {
+  display: none;
+  position: fixed;
+  z-index: 1003;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border: 2px solid #666;
+  overflow: hidden;
+  width: 900px;
+  height: 600px;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#admin-modal.show {
+  display: block;
+}
+
+#admin-content {
+  background: #333;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#admin-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  background: #444;
+  padding: 10px;
+  border-bottom: 1px solid #666;
+}
+
+.admin-tab-button {
+  background: #555;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  margin: 0 5px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.admin-tab-button:hover, .admin-tab-button.active {
+  background: #777;
+}
+
+#admin-panel-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.admin-tab-content {
+  display: none;
+}
+
+.admin-tab-content.active {
+  display: block;
+}
+
+.admin-section {
+  background: #444;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.admin-section h3 {
+  margin-top: 0;
+  color: #fff;
+  border-bottom: 1px solid #666;
+  padding-bottom: 10px;
+}
+
+.admin-section button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.admin-section button:hover {
+  background: #45a049;
+}
+
+#npcs-list, #shops-list, #players-list, #items-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.npc-item, .shop-item, .player-item, .item-item {
+  background: #555;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.npc-item:hover, .shop-item:hover, .player-item:hover, .item-item:hover {
+  background: #777;
+}
+
+.npc-info, .shop-info, .player-info, .item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.npc-name, .shop-name, .player-name, .item-name {
+  font-weight: bold;
+  color: #fff;
+  font-size: 16px;
+}
+
+.npc-details, .shop-details, .player-details, .item-details {
+  font-size: 12px;
+  color: #ccc;
+  margin-top: 5px;
+}
+
+.npc-actions, .shop-actions, .player-actions, .item-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.npc-actions button, .shop-actions button, .player-actions button, .item-actions button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.edit-btn {
+  background: #2196F3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #1976D2;
+}
+
+.delete-btn {
+  background: #f44336;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #d32f2f;
+}
+
+/* Edit Modal Styles */
+#npc-edit-modal, #item-edit-modal, #shop-item-edit-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1004;
+  justify-content: center;
+  align-items: center;
+}
+
+#npc-edit-modal.show, #item-edit-modal.show, #shop-item-edit-modal.show {
+  display: flex;
+}
+
+#npc-edit-content, #item-edit-content, #shop-item-edit-content {
+  background: #333;
+  padding: 20px;
+  border-radius: 10px;
+  width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #444;
+  color: #fff;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.form-group button {
+  width: 100%;
+  padding: 10px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.form-group button:hover {
+  background: #45a049;
+}
+
+#delete-npc-btn, #delete-item-btn, #delete-shop-item-btn {
+  background: #f44336 !important;
+}
+
+#delete-npc-btn:hover, #delete-item-btn:hover, #delete-shop-item-btn:hover {
+  background: #d32f2f !important;
+}

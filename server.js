@@ -329,7 +329,8 @@ async function initDatabase() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       forum_userID INT UNIQUE,
       username VARCHAR(255) UNIQUE,
-      email VARCHAR(255)
+      email VARCHAR(255),
+      is_admin BOOLEAN DEFAULT FALSE
     ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS characters (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -426,6 +427,14 @@ async function initDatabase() {
       console.error('Error creating table:', err);
     }
   }
+
+  // Add is_admin column to existing users table if it doesn't exist
+  try {
+    await db.promise().query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE');
+    console.log('Ensured is_admin column exists in users table');
+  } catch (err) {
+    console.error('Error adding is_admin column:', err);
+  }
 }
 
 // Game data
@@ -515,17 +524,18 @@ async function handleLogin(req, res) {
     const { userID, username: uname, email } = data;
     db.query('INSERT INTO users (forum_userID, username, email) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE username=VALUES(username), email=VALUES(email)', [userID, uname, email], (err) => {
       if (err) return sendError(res, `Database error: ${err.message}`);
-      // Get the db id
-      db.query('SELECT id FROM users WHERE forum_userID = ?', [userID], (err2, results) => {
+      // Get the db id and admin status
+      db.query('SELECT id, is_admin FROM users WHERE forum_userID = ?', [userID], (err2, results) => {
         if (err2) return sendError(res, `Database error: ${err2.message}`);
         const dbId = results[0].id;
+        const isAdmin = results[0].is_admin || false;
         req.session.regenerate((err) => {
           if (err) return sendError(res, 'Session regeneration failed');
           req.session.user = { id: dbId, forumUserID: userID, username: uname, email };
           req.session.save((saveErr) => {
             if (saveErr) return sendError(res, 'Session save failed');
             const token = jwt.sign({ userId: dbId, sessionId: req.session.id }, JWT_SECRET, { expiresIn: '24h' });
-            res.json({ success: true, userID: dbId, forumUserID: userID, username: uname, email, token });
+            res.json({ success: true, userID: dbId, forumUserID: userID, username: uname, email, token, isAdmin });
           });
         });
       });
@@ -1255,7 +1265,7 @@ setInterval(() => {
 }, 1000); // Update NPCs every second
 
 // Session validation endpoint
-app.post('/api/validate-session', (req, res) => {
+app.post('/api/validate-session', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.json({ valid: false });
 
@@ -1264,8 +1274,297 @@ app.post('/api/validate-session', (req, res) => {
       return res.json({ valid: false });
     }
     const isValid = await isSessionValid(decoded.sessionId);
-    res.json({ valid: isValid });
+    if (!isValid) return res.json({ valid: false });
+    
+    // Get user info including admin status
+    try {
+      const [userRows] = await db.promise().query('SELECT is_admin FROM users WHERE id = ?', [decoded.userId]);
+      if (userRows.length === 0) return res.json({ valid: false });
+      
+      const isAdmin = userRows[0].is_admin || false;
+      res.json({ valid: true, isAdmin });
+    } catch (error) {
+      console.error('Session validation error:', error);
+      res.json({ valid: false });
+    }
   });
+});
+
+// Admin middleware
+const requireAdmin = async (req, res, next) => {
+  try {
+    // Check if the user has admin privileges in the database
+    const [userRows] = await db.promise().query('SELECT is_admin FROM users WHERE id = ?', [req.userId]);
+    if (userRows.length === 0) return res.status(403).json({ error: 'User not found' });
+    
+    if (!userRows[0].is_admin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Admin check error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Admin API Routes
+app.get('/api/admin/npcs', requireAdmin, async (req, res) => {
+  try {
+    const [npcs] = await db.promise().query('SELECT * FROM npcs ORDER BY id');
+    res.json(npcs);
+  } catch (error) {
+    console.error('Error fetching NPCs:', error);
+    res.status(500).json({ error: 'Failed to fetch NPCs' });
+  }
+});
+
+app.post('/api/admin/npcs', requireAdmin, async (req, res) => {
+  const { name, level, realm, npc_type, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
+  
+  if (!name || !level || !realm || !npc_type || !position) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    const [result] = await db.promise().query(
+      'INSERT INTO npcs (name, level, realm, npc_type, x, y, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, level, realm, npc_type, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false]
+    );
+    
+    // Reload NPCs into memory
+    await loadNPCsFromDatabase();
+    
+    res.json({ success: true, id: result.insertId });
+  } catch (error) {
+    console.error('Error creating NPC:', error);
+    res.status(500).json({ error: 'Failed to create NPC' });
+  }
+});
+
+app.put('/api/admin/npcs/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, level, realm, npc_type, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
+  
+  if (!name || !level || !realm || !npc_type || !position) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    await db.promise().query(
+      'UPDATE npcs SET name = ?, level = ?, realm = ?, npc_type = ?, x = ?, y = ?, roaming_type = ?, roaming_radius = ?, roaming_speed = ?, has_shop = ?, has_quests = ?, has_guard_duties = ?, has_healing = ?, has_blacksmith = ? WHERE id = ?',
+      [name, level, realm, npc_type, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false, id]
+    );
+    
+    // Reload NPCs into memory
+    await loadNPCsFromDatabase();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating NPC:', error);
+    res.status(500).json({ error: 'Failed to update NPC' });
+  }
+});
+
+app.delete('/api/admin/npcs/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await db.promise().query('DELETE FROM npcs WHERE id = ?', [id]);
+    
+    // Reload NPCs into memory
+    await loadNPCsFromDatabase();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting NPC:', error);
+    res.status(500).json({ error: 'Failed to delete NPC' });
+  }
+});
+
+app.get('/api/admin/items', requireAdmin, async (req, res) => {
+  try {
+    const [items] = await db.promise().query('SELECT * FROM items ORDER BY id');
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching items:', error);
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+});
+
+app.post('/api/admin/items', requireAdmin, async (req, res) => {
+  const { name, type, rarity, value, stackable } = req.body;
+  
+  if (!name || !type || !rarity || value === undefined || stackable === undefined) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    const [result] = await db.promise().query(
+      'INSERT INTO items (name, type, rarity, value, stackable) VALUES (?, ?, ?, ?, ?)',
+      [name, type, rarity, value, stackable]
+    );
+    
+    res.json({ success: true, id: result.insertId });
+  } catch (error) {
+    console.error('Error creating item:', error);
+    res.status(500).json({ error: 'Failed to create item' });
+  }
+});
+
+app.put('/api/admin/items/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, type, rarity, value, stackable } = req.body;
+  
+  if (!name || !type || !rarity || value === undefined || stackable === undefined) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    await db.promise().query(
+      'UPDATE items SET name = ?, type = ?, rarity = ?, value = ?, stackable = ? WHERE id = ?',
+      [name, type, rarity, value, stackable, id]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+app.delete('/api/admin/items/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await db.promise().query('DELETE FROM items WHERE id = ?', [id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+app.get('/api/admin/shops', requireAdmin, async (req, res) => {
+  try {
+    const [shops] = await db.promise().query(`
+      SELECT n.id, n.name, n.npc_type, COUNT(si.id) as item_count
+      FROM npcs n
+      LEFT JOIN shop_items si ON n.id = si.npc_id
+      WHERE n.npc_type = 'merchant'
+      GROUP BY n.id, n.name, n.npc_type
+      ORDER BY n.id
+    `);
+    res.json(shops);
+  } catch (error) {
+    console.error('Error fetching shops:', error);
+    res.status(500).json({ error: 'Failed to fetch shops' });
+  }
+});
+
+app.get('/api/admin/shop-items/:shopId', requireAdmin, async (req, res) => {
+  const { shopId } = req.params;
+  
+  try {
+    const [shopItems] = await db.promise().query(`
+      SELECT si.*, i.name as item_name, i.type, i.rarity
+      FROM shop_items si
+      JOIN items i ON si.item_id = i.id
+      WHERE si.npc_id = ?
+      ORDER BY si.id
+    `, [shopId]);
+    
+    res.json(shopItems);
+  } catch (error) {
+    console.error('Error fetching shop items:', error);
+    res.status(500).json({ error: 'Failed to fetch shop items' });
+  }
+});
+
+app.post('/api/admin/shop-items', requireAdmin, async (req, res) => {
+  const { item_id, price, shop_id } = req.body;
+  
+  if (!item_id || !price || !shop_id) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    const [result] = await db.promise().query(
+      'INSERT INTO shop_items (npc_id, item_id, price, quantity) VALUES (?, ?, ?, 999)',
+      [shop_id, item_id, price]
+    );
+    
+    res.json({ success: true, id: result.insertId });
+  } catch (error) {
+    console.error('Error creating shop item:', error);
+    res.status(500).json({ error: 'Failed to create shop item' });
+  }
+});
+
+app.put('/api/admin/shop-items/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { item_id, price } = req.body;
+  
+  if (!item_id || !price) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    await db.promise().query(
+      'UPDATE shop_items SET item_id = ?, price = ? WHERE id = ?',
+      [item_id, price, id]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating shop item:', error);
+    res.status(500).json({ error: 'Failed to update shop item' });
+  }
+});
+
+app.delete('/api/admin/shop-items/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    await db.promise().query('DELETE FROM shop_items WHERE id = ?', [id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting shop item:', error);
+    res.status(500).json({ error: 'Failed to delete shop item' });
+  }
+});
+
+app.get('/api/admin/players', requireAdmin, async (req, res) => {
+  try {
+    const [players] = await db.promise().query(`
+      SELECT c.*, u.username as account_name
+      FROM characters c
+      JOIN users u ON c.user_id = u.id
+      ORDER BY c.id
+    `);
+    res.json(players);
+  } catch (error) {
+    console.error('Error fetching players:', error);
+    res.status(500).json({ error: 'Failed to fetch players' });
+  }
+});
+
+app.delete('/api/admin/players/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Delete character and all related data
+    await db.promise().query('DELETE FROM player_inventory WHERE character_id = ?', [id]);
+    await db.promise().query('DELETE FROM positions WHERE character_id = ?', [id]);
+    await db.promise().query('DELETE FROM characters WHERE id = ?', [id]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting player:', error);
+    res.status(500).json({ error: 'Failed to delete player' });
+  }
 });
 
 // Periodic sync from Redis to DB

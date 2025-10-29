@@ -148,3 +148,256 @@
 
   <!-- Inventory button -->
   <button id="inventory-btn">Inventory</button>
+
+  <!-- Admin Panel -->
+  <button id="admin-btn" style="display: none;">Admin Panel</button>
+
+  <!-- Admin Modal -->
+  <div id="admin-modal">
+    <div id="admin-content">
+      <div class="window-header">
+        <div class="window-title">Game Admin Panel</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-admin-modal">&times;</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div id="admin-tabs">
+          <button class="admin-tab-button active" data-tab="npcs">NPCs</button>
+          <button class="admin-tab-button" data-tab="shops">Shops</button>
+          <button class="admin-tab-button" data-tab="players">Players</button>
+          <button class="admin-tab-button" data-tab="items">Items</button>
+        </div>
+        <div id="admin-panel-content">
+          <!-- NPCs Tab -->
+          <div id="npcs-tab" class="admin-tab-content active">
+            <div class="admin-section">
+              <h3>NPCs</h3>
+              <button id="create-npc-btn">Create NPC</button>
+              <div id="npcs-list"></div>
+            </div>
+          </div>
+
+          <!-- Shops Tab -->
+          <div id="shops-tab" class="admin-tab-content">
+            <div class="admin-section">
+              <h3>Shop Management</h3>
+              <button id="create-shop-item-btn">Add Shop Item</button>
+              <div id="shops-list"></div>
+            </div>
+          </div>
+
+          <!-- Players Tab -->
+          <div id="players-tab" class="admin-tab-content">
+            <div class="admin-section">
+              <h3>Players</h3>
+              <div id="players-list"></div>
+            </div>
+          </div>
+
+          <!-- Items Tab -->
+          <div id="items-tab" class="admin-tab-content">
+            <div class="admin-section">
+              <h3>Items</h3>
+              <button id="create-item-btn">Create Item</button>
+              <div id="items-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NPC Edit Modal -->
+  <div id="npc-edit-modal">
+    <div id="npc-edit-content">
+      <div class="window-header">
+        <div class="window-title">Edit NPC</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-npc-edit-modal">&times;</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <form id="npc-edit-form">
+          <input type="hidden" id="npc-id">
+          <div class="form-group">
+            <label for="npc-name">Name:</label>
+            <input type="text" id="npc-name" required>
+          </div>
+          <div class="form-group">
+            <label for="npc-realm">Realm:</label>
+            <select id="npc-realm" required>
+              <option value="Alsius">Alsius</option>
+              <option value="Syrtis">Syrtis</option>
+              <option value="Ignis">Ignis</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="npc-level">Level:</label>
+            <input type="number" id="npc-level" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="npc-x">X Position:</label>
+            <input type="number" id="npc-x" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="npc-y">Y Position:</label>
+            <input type="number" id="npc-y" step="0.1" required>
+          </div>
+          <div class="form-group">
+            <label for="npc-type">Type:</label>
+            <select id="npc-type" required>
+              <option value="civilian">Civilian</option>
+              <option value="merchant">Merchant</option>
+              <option value="quest_giver">Quest Giver</option>
+              <option value="guard">Guard</option>
+              <option value="healer">Healer</option>
+              <option value="blacksmith">Blacksmith</option>
+              <option value="king">King</option>
+              <option value="warlord">Warlord</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="npc-roaming-type">Roaming Type:</label>
+            <select id="npc-roaming-type" required>
+              <option value="static">Static</option>
+              <option value="wander">Wander</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="npc-roaming-radius">Roaming Radius:</label>
+            <input type="number" id="npc-roaming-radius" min="0">
+          </div>
+          <div class="form-group">
+            <label for="npc-roaming-speed">Roaming Speed:</label>
+            <input type="number" id="npc-roaming-speed" min="0" step="0.1">
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="npc-has-shop"> Has Shop
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="npc-has-quests"> Has Quests
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="npc-has-guard-duties"> Has Guard Duties
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="npc-has-healing"> Has Healing
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="npc-has-blacksmith"> Has Blacksmith
+            </label>
+          </div>
+          <button type="submit">Save NPC</button>
+          <button type="button" id="delete-npc-btn">Delete NPC</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Item Edit Modal -->
+  <div id="item-edit-modal">
+    <div id="item-edit-content">
+      <div class="window-header">
+        <div class="window-title">Edit Item</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-item-edit-modal">&times;</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <form id="item-edit-form">
+          <input type="hidden" id="item-id">
+          <div class="form-group">
+            <label for="item-name">Name:</label>
+            <input type="text" id="item-name" required>
+          </div>
+          <div class="form-group">
+            <label for="item-description">Description:</label>
+            <textarea id="item-description"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="item-type">Type:</label>
+            <select id="item-type" required>
+              <option value="weapon">Weapon</option>
+              <option value="armor">Armor</option>
+              <option value="consumable">Consumable</option>
+              <option value="resource">Resource</option>
+              <option value="misc">Miscellaneous</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="item-rarity">Rarity:</label>
+            <select id="item-rarity" required>
+              <option value="common">Common</option>
+              <option value="uncommon">Uncommon</option>
+              <option value="rare">Rare</option>
+              <option value="epic">Epic</option>
+              <option value="legendary">Legendary</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="item-value">Value:</label>
+            <input type="number" id="item-value" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="item-level-requirement">Level Requirement:</label>
+            <input type="number" id="item-level-requirement" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="item-stackable"> Stackable
+            </label>
+          </div>
+          <button type="submit">Save Item</button>
+          <button type="button" id="delete-item-btn">Delete Item</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Item Edit Modal -->
+  <div id="shop-item-edit-modal">
+    <div id="shop-item-edit-content">
+      <div class="window-header">
+        <div class="window-title">Edit Shop Item</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-shop-item-edit-modal">&times;</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <form id="shop-item-edit-form">
+          <input type="hidden" id="shop-item-id">
+          <div class="form-group">
+            <label for="shop-item-npc">NPC:</label>
+            <select id="shop-item-npc" required></select>
+          </div>
+          <div class="form-group">
+            <label for="shop-item-item">Item:</label>
+            <select id="shop-item-item" required></select>
+          </div>
+          <div class="form-group">
+            <label for="shop-item-quantity">Quantity:</label>
+            <input type="number" id="shop-item-quantity" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="shop-item-price">Price:</label>
+            <input type="number" id="shop-item-price" min="0" required>
+          </div>
+          <button type="submit">Save Shop Item</button>
+          <button type="button" id="delete-shop-item-btn">Delete Shop Item</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

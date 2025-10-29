@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     networks:
       - regnum-network
+
   mariadb:
     image: mariadb:10.11
     environment:
@@ -14,6 +15,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - ./mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
     networks:
       - regnum-network

@@ -23,6 +23,7 @@ class RegnumMap {
     this.rasterCoords = null;
     this.socket = null;
     this.players = {}; // { id: { marker, character } }
+    this.npcs = {}; // { id: { marker, npc } }
     this.currentPlayer = null;
     this.playerSpeed = 0; // Will be set by server
     this.latency = 0;
@@ -249,6 +250,8 @@ class RegnumMap {
     // Clear players
     Object.keys(this.players).forEach(id => this.removePlayer(id));
     this.currentPlayer = null;
+    // Clear NPCs
+    Object.keys(this.npcs).forEach(id => this.removeNPC(id));
     alert('Logged out successfully.');
   }
 
@@ -498,6 +501,8 @@ class RegnumMap {
     // Clear players
     Object.keys(this.players).forEach(id => this.removePlayer(id));
     this.currentPlayer = null;
+    // Clear NPCs
+    Object.keys(this.npcs).forEach(id => this.removeNPC(id));
     // Show character modal
     this.showCharacterModal();
   }
@@ -537,7 +542,7 @@ class RegnumMap {
       if (this.manaRegen) this.manaRegen.textContent = `(+${data.manaRegen}/s)`;
       if (this.staminaRegen) this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
       this.addPlayer(this.socket.id, data.character, data.position, true);
-      this.map.setView(this.toLatLng([data.position.x, data.position.y]), this.map.getZoom());
+      this.map.setView(this.toLatLng([data.position.x, data.position.y]), data.zoom || this.map.getZoom());
       // Update location display with server position
       this.updateLocationDisplay(data.position);
       this.updateZoomDisplay(this.map.getZoom());
@@ -546,6 +551,10 @@ class RegnumMap {
 
     this.socket.on('existingPlayers', (players) => {
       players.forEach(p => this.addPlayer(p.id, p.character, p.position));
+    });
+
+    this.socket.on('npcs', (npcs) => {
+      npcs.forEach(npc => this.addNPC(npc.id, npc));
     });
 
     this.socket.on('playerJoined', (data) => {
@@ -564,6 +573,19 @@ class RegnumMap {
 
     this.socket.on('playerLeft', (id) => {
       this.removePlayer(id);
+    });
+
+    this.socket.on('npcMoved', (data) => {
+      console.log('NPC moved', data);
+      this.updateNPCPosition(data.id, data.position);
+    });
+
+    this.socket.on('npcMessage', (data) => {
+      alert(`NPC: ${data.message}`);
+    });
+
+    this.socket.on('npcsLeft', (npcIds) => {
+      npcIds.forEach(id => this.removeNPC(id));
     });
 
     this.socket.on('error', (msg) => {
@@ -607,6 +629,20 @@ class RegnumMap {
     this.players[id] = { marker, character, position };
   }
 
+  addNPC(id, npc) {
+    const latLng = this.toLatLng([npc.position.x, npc.position.y]);
+    const npcIcon = L.icon({
+      iconUrl: 'https://img.icons8.com/material-outlined/24/person-male.png', // Different icon for NPCs
+      iconSize: [16, 16],
+      iconAnchor: [8, 16]
+    });
+    const marker = L.marker(latLng, { icon: npcIcon }).addTo(this.map);
+    marker.bindPopup(`${npc.name} (Lv.${npc.level}) - ${npc.realm}`);
+    marker.bindTooltip(`${npc.name} (Lv.${npc.level})`, { permanent: true, direction: 'top', offset: [0, -16] });
+    marker.on('click', () => this.socket.emit('interactNPC', id));
+    this.npcs[id] = { marker, npc, position: npc.position };
+  }
+
   updatePlayerPosition(id, position) {
     if (this.players[id]) {
       const latLng = this.toLatLng([position.x, position.y]);
@@ -618,6 +654,14 @@ class RegnumMap {
       } else {
         this.animateMarker(this.players[id].marker, this.players[id].marker.getLatLng(), latLng, 200);
       }
+    }
+  }
+
+  updateNPCPosition(id, position) {
+    if (this.npcs[id]) {
+      const latLng = this.toLatLng([position.x, position.y]);
+      this.npcs[id].position = position;
+      this.animateMarker(this.npcs[id].marker, this.npcs[id].marker.getLatLng(), latLng, 200);
     }
   }
 
@@ -641,6 +685,13 @@ class RegnumMap {
     }
   }
 
+  removeNPC(id) {
+    if (this.npcs[id]) {
+      this.map.removeLayer(this.npcs[id].marker);
+      delete this.npcs[id];
+    }
+  }
+
   initMovement() {
     this.keys = {};
     document.addEventListener('keydown', (e) => {
@@ -653,7 +704,11 @@ class RegnumMap {
       this.keys[e.key.toLowerCase()] = false;
       this.socket.emit('keyUp', { key: e.key.toLowerCase() });
     });
-    this.map.on('zoomend', () => this.updateZoomDisplay(this.map.getZoom()));
+    this.map.on('zoomend', () => {
+      const zoom = this.map.getZoom();
+      this.updateZoomDisplay(zoom);
+      if (this.socket) this.socket.emit('zoomChanged', zoom);
+    });
   }
 
   moveToPosition(x, y) {

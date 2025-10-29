@@ -22,6 +22,22 @@ const redisClient = redis.createClient({
 console.log('Connecting to Redis at', process.env.REDIS_HOST || 'localhost');
 redisClient.connect().catch(console.error);
 
+// Initialize NPCs from gameData
+const npcs = {};
+gameData.npcs.forEach((npc, index) => {
+  const id = index + 1;
+  const isWandering = npc.name === 'Basilissa'; // Make Basilissa wander for demo
+  npcs[id] = {
+    id,
+    ...npc,
+    originalPosition: { ...npc.position },
+    roaming_type: isWandering ? 'wander' : 'static',
+    roaming_radius: isWandering ? 50 : 0,
+    roaming_speed: isWandering ? 1 : 0,
+    roaming_path: null
+  };
+});
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -33,12 +49,31 @@ const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
 const MAP_BOUNDS = { minX: 0, maxX: 6157, minY: 0, maxY: 6192 };
 const DEFAULT_POS = { x: 3078, y: 3096 };
+const VIEW_DISTANCE = 1000; // NPCs visible within 1000 units
+const INITIAL_ZOOM = 7;
 
 // Helper function for errors
 
 
 // Helper function for errors
 const sendError = (res, msg, code = 500) => res.status(code).json({ error: msg });
+
+// Function to get NPCs visible from a position
+function getVisibleNPCs(position, viewDistance = VIEW_DISTANCE) {
+  const visible = [];
+  Object.values(npcs).forEach(npc => {
+    const dist = Math.sqrt((npc.position.x - position.x) ** 2 + (npc.position.y - position.y) ** 2);
+    if (dist <= viewDistance) {
+      visible.push(npc);
+    }
+  });
+  return visible;
+}
+
+// Function to calculate view distance based on zoom
+function getViewDistance(zoom) {
+  return 80 * Math.pow(2, 9 - zoom);
+}
 
 // MySQL connection pool
 const db = mysql.createPool({
@@ -85,6 +120,10 @@ app.use(express.static(path.join(__dirname)));
 // Function to initialize database
 function initDatabase() {
   const tables = [
+    `CREATE TABLE IF NOT EXISTS realms (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) UNIQUE
+    )`,
     `CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       forum_userID INT UNIQUE,
@@ -117,9 +156,21 @@ function initDatabase() {
       character_id INT UNIQUE,
       x FLOAT DEFAULT 3078,
       y FLOAT DEFAULT 3096,
+      date_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     )`,
-
+    `CREATE TABLE IF NOT EXISTS npcs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      realm VARCHAR(255),
+      name VARCHAR(255),
+      level INT DEFAULT 1,
+      x FLOAT DEFAULT 0,
+      y FLOAT DEFAULT 0,
+      roaming_type VARCHAR(50) DEFAULT 'static',
+      roaming_radius INT DEFAULT 0,
+      roaming_speed FLOAT DEFAULT 0,
+      roaming_path LONGTEXT
+    )`
   ];
   tables.forEach(query => db.query(query));
 }
@@ -345,15 +396,21 @@ io.on('connection', (socket) => {
         character.current_stamina = redisPlayer.character.current_stamina;
       }
 
-      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {} };
+      players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {}, visibleNPCs: new Set(), zoom: INITIAL_ZOOM };
       redisClient.set(`player:${characterId}`, JSON.stringify(players[socket.id]));
       socket.characterId = characterId;
-      socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 2.0 });
+      socket.emit('joined', { character, position, speed: BASE_SPEED, healthRegen: 0.25, manaRegen: 0.25, staminaRegen: 2.0, zoom: INITIAL_ZOOM });
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player
       const existingPlayers = Object.keys(players).filter(id => id !== socket.id).map(id => ({ id, ...players[id] }));
       socket.emit('existingPlayers', existingPlayers);
+      // Send visible NPCs to this player
+      const viewDistance = getViewDistance(INITIAL_ZOOM);
+      const visibleNPCs = getVisibleNPCs(position, viewDistance);
+      socket.emit('npcs', visibleNPCs);
+      // Track visible NPCs
+      visibleNPCs.forEach(npc => players[socket.id].visibleNPCs.add(npc.id));
     } catch (err) {
       socket.emit('error', `Database error: ${err.message}`);
     }
@@ -407,6 +464,34 @@ io.on('connection', (socket) => {
 
   socket.on('ping', (start) => {
     socket.emit('pong', start);
+  });
+
+  socket.on('interactNPC', (npcId) => {
+    const npc = npcs[npcId];
+    if (!npc) return;
+    // For now, just send a greeting message
+    socket.emit('npcMessage', { npcId, message: `Hello, I am ${npc.name}, level ${npc.level} from ${npc.realm}.` });
+  });
+
+  socket.on('zoomChanged', (newZoom) => {
+    if (!players[socket.id]) return;
+    const player = players[socket.id];
+    player.zoom = newZoom;
+    // Update visibility based on new zoom
+    const viewDistance = getViewDistance(newZoom);
+    const currentVisible = new Set(getVisibleNPCs(player.position, viewDistance).map(npc => npc.id));
+    const previouslyVisible = player.visibleNPCs;
+    const newVisible = [...currentVisible].filter(id => !previouslyVisible.has(id));
+    const noLongerVisible = [...previouslyVisible].filter(id => !currentVisible.has(id));
+
+    if (newVisible.length > 0) {
+      const newNPCs = newVisible.map(id => npcs[id]);
+      socket.emit('npcs', newNPCs);
+    }
+    if (noLongerVisible.length > 0) {
+      socket.emit('npcsLeft', noLongerVisible);
+    }
+    player.visibleNPCs = currentVisible;
   });
 
   socket.on('disconnect', async () => {
@@ -526,8 +611,74 @@ setInterval(() => {
     if (socket) socket.emit('moved', newPos);
     // Update Redis
     redisClient.set(`player:${player.character.id}`, JSON.stringify(player));
+
+    // Check NPC visibility changes
+    const viewDistance = getViewDistance(player.zoom);
+    const currentVisible = new Set(getVisibleNPCs(newPos, viewDistance).map(npc => npc.id));
+    const previouslyVisible = player.visibleNPCs;
+    const newVisible = [...currentVisible].filter(id => !previouslyVisible.has(id));
+    const noLongerVisible = [...previouslyVisible].filter(id => !currentVisible.has(id));
+
+    if (newVisible.length > 0) {
+      const newNPCs = newVisible.map(id => npcs[id]);
+      socket.emit('npcs', newNPCs);
+    }
+    if (noLongerVisible.length > 0) {
+      socket.emit('npcsLeft', noLongerVisible);
+    }
+    player.visibleNPCs = currentVisible;
   });
 }, 20); // 20ms for smooth movement
+
+// NPC update loop
+setInterval(() => {
+  Object.values(npcs).forEach(npc => {
+    if (npc.roaming_type === 'static') return;
+
+    // Simple wandering AI
+    if (npc.roaming_type === 'wander' && npc.roaming_radius > 0) {
+      // Move randomly within radius
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * npc.roaming_speed;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance;
+
+      const newX = npc.position.x + dx;
+      const newY = npc.position.y + dy;
+
+      // Check if within roaming radius from original position
+      const distFromOrigin = Math.sqrt((newX - npc.originalPosition.x) ** 2 + (newY - npc.originalPosition.y) ** 2);
+      if (distFromOrigin <= npc.roaming_radius) {
+        npc.position.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newX));
+        npc.position.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newY));
+        // Broadcast NPC movement to players who can see it
+        Object.keys(players).forEach(socketId => {
+          const player = players[socketId];
+          const viewDistance = getViewDistance(player.zoom);
+          const wasVisible = player.visibleNPCs.has(npc.id);
+          const dist = Math.sqrt((npc.position.x - player.position.x) ** 2 + (npc.position.y - player.position.y) ** 2);
+          const isVisible = dist <= viewDistance;
+          if (isVisible) {
+            const socket = io.sockets.sockets.get(socketId);
+            if (socket) socket.emit('npcMoved', { id: npc.id, position: npc.position });
+            if (!wasVisible) {
+              // NPC entered view
+              socket.emit('npcs', [npc]);
+              player.visibleNPCs.add(npc.id);
+            }
+          } else if (wasVisible) {
+            // NPC left view
+            const socket = io.sockets.sockets.get(socketId);
+            if (socket) socket.emit('npcsLeft', [npc.id]);
+            player.visibleNPCs.delete(npc.id);
+          }
+        });
+      }
+    }
+  });
+}, 1000); // Update NPCs every second
+
+// Global update loop
 
 // Session validation endpoint
 app.post('/api/validate-session', (req, res) => {

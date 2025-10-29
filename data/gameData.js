@@ -42,7 +42,11 @@ const gameData = {
     'Nordo Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 },
     'Utghar Mage': { conc: 9, const: 9, dex: 10, int: 16, str: 11 },
     'Utghar Warrior': { conc: 8, const: 13, dex: 9, int: 8, str: 17 }
-  }
+  },
+  npcs: [
+    { name: 'Irehok', level: 60, realm: 'Syrtis', position: { x: 1156, y: 4592 } },
+    { name: 'Basilissa', level: 60, realm: 'Syrtis', position: { x: 1123, y: 4536 } }
+  ]
 };
 
 module.exports = gameData;

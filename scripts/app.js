@@ -164,6 +164,7 @@ class RegnumMap {
     this.locationDisplay = document.getElementById('location-display');
     this.zoomDisplay = document.getElementById('zoom-display');
     this.latencyDisplay = document.getElementById('latency-display');
+    this.goldDisplay = document.getElementById('gold-display');
     this.switchCharacterBtn = document.getElementById('switch-character-btn');
 
     if (this.switchCharacterBtn) this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
@@ -173,16 +174,97 @@ class RegnumMap {
     this.closeShopModal = document.getElementById('close-shop-modal');
     this.shopTitle = document.getElementById('shop-title');
     this.shopItems = document.getElementById('shop-items');
+    this.transactionTabs = document.getElementById('transaction-tabs');
+    this.transactionItems = document.getElementById('transaction-items');
+    this.confirmTransaction = document.getElementById('confirm-transaction');
+    this.clearTransaction = document.getElementById('clear-transaction');
+    this.currentTransactionTab = 'buy';
+    this.transactionList = []; // Array to hold items for transaction
+
+    // Inventory elements
     this.inventoryModal = document.getElementById('inventory-modal');
     this.closeInventoryModal = document.getElementById('close-inventory-modal');
     this.inventoryTabs = document.getElementById('inventory-tabs');
     this.inventoryItems = document.getElementById('inventory-items');
     this.inventoryBtn = document.getElementById('inventory-btn');
-    this.currentInventoryTab = 1;
+    this.currentInventoryTab = 1; // Default to tab 1
+    
+    // Window dragging functionality
+    this.draggedWindow = null;
+    this.dragOffset = { x: 0, y: 0 };
 
     if (this.closeShopModal) this.closeShopModal.addEventListener('click', () => this.hideShopModal());
+    if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.confirmTransactionAction());
+    if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.clearTransactionList());
+    
+    // Inventory event listeners
     if (this.closeInventoryModal) this.closeInventoryModal.addEventListener('click', () => this.hideInventoryModal());
     if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
+    
+    // Window dragging event listeners
+    this.setupWindowDragging();
+    
+    // Inventory tab switching
+    if (this.inventoryTabs) {
+      this.inventoryTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tab-button')) {
+          const tabId = parseInt(e.target.dataset.tab);
+          this.switchInventoryTab(tabId);
+        }
+      });
+      
+      // Add drag and drop for tabs
+      const tabButtons = this.inventoryTabs.querySelectorAll('.tab-button');
+      tabButtons.forEach(button => {
+        button.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          button.classList.add('drag-over');
+        });
+        
+        button.addEventListener('dragleave', (e) => {
+          button.classList.remove('drag-over');
+        });
+        
+        button.addEventListener('drop', (e) => {
+          e.preventDefault();
+          button.classList.remove('drag-over');
+          const itemData = JSON.parse(e.dataTransfer.getData('text/plain'));
+          const targetTab = parseInt(button.dataset.tab);
+          if (targetTab !== itemData.tab_id) {
+            this.moveItemToTab(itemData, targetTab);
+          }
+        });
+      });
+    }
+    
+    // Transaction tab switching
+    if (this.transactionTabs) {
+      this.transactionTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('transaction-tab-button')) {
+          const tabType = e.target.dataset.tab;
+          this.switchTransactionTab(tabType);
+        }
+      });
+    }
+    
+    // Add drag and drop for transaction area
+    if (this.transactionItems) {
+      this.transactionItems.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        this.transactionItems.classList.add('drag-over');
+      });
+      
+      this.transactionItems.addEventListener('dragleave', (e) => {
+        this.transactionItems.classList.remove('drag-over');
+      });
+      
+      this.transactionItems.addEventListener('drop', (e) => {
+        e.preventDefault();
+        this.transactionItems.classList.remove('drag-over');
+        const itemData = JSON.parse(e.dataTransfer.getData('text/plain'));
+        this.addItemToTransaction(itemData, e.target === this.transactionItems ? 'unknown' : 'shop');
+      });
+    }
     
     // Inventory tab switching and drag/drop
     if (this.inventoryTabs) {
@@ -513,6 +595,7 @@ class RegnumMap {
     this.manaText.textContent = `${character.current_mana}/${character.max_mana}`;
     this.staminaFill.style.width = `${(character.current_stamina / character.max_stamina) * 100}%`;
     this.staminaText.textContent = `${character.current_stamina}/${character.max_stamina}`;
+    if (this.goldDisplay) this.goldDisplay.textContent = `Gold: ${character.gold || 0}`;
     this.characterInfo.style.display = 'block';
   }
 
@@ -678,6 +761,23 @@ class RegnumMap {
 
     this.socket.on('inventoryUpdate', (inventory) => {
       this.displayInventoryItems(inventory);
+    });
+
+    this.socket.on('goldUpdate', (data) => {
+      if (this.goldDisplay) this.goldDisplay.textContent = `Gold: ${data.gold}`;
+    });
+
+    this.socket.on('itemSold', (data) => {
+      alert(`Sold ${data.quantity}x ${data.itemName} for ${data.goldEarned} gold!`);
+    });
+
+    this.socket.on('transactionComplete', (data) => {
+      // Clear the transaction list after successful transaction
+      this.clearTransactionList();
+      
+      // Play sound and show orange text
+      this.playTransactionSound();
+      this.showTransactionMessage(data);
     });
   }
 
@@ -867,7 +967,7 @@ class RegnumMap {
   showShopModal(npcId, npcName) {
     if (this.shopModal && this.shopTitle) {
       this.shopTitle.textContent = `${npcName}'s Shop`;
-      this.shopModal.classList.add('show');
+      this.shopModal.style.display = 'block';
       this.currentShopNpcId = npcId;
       // Request shop items
       this.socket.emit('getShopItems', npcId);
@@ -876,8 +976,12 @@ class RegnumMap {
 
   hideShopModal() {
     if (this.shopModal) {
-      this.shopModal.classList.remove('show');
+      this.shopModal.style.display = 'none';
       this.currentShopNpcId = null;
+      this.clearTransactionList();
+      
+      // Refresh inventory to show items that were in transaction
+      this.socket.emit('getInventory');
     }
   }
 
@@ -888,28 +992,41 @@ class RegnumMap {
       this.shopItems.innerHTML = '<p>No items available in this shop.</p>';
       return;
     }
-    const ul = document.createElement('ul');
-    ul.className = 'shop-item-list';
+    
     items.forEach(item => {
-      const li = document.createElement('li');
-      li.className = 'shop-item';
-      li.innerHTML = `
-        <div class="item-name">${item.name}</div>
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'shop-item';
+      itemDiv.draggable = true;
+      itemDiv.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${item.name}</div>
+          <div class="item-details">${item.type} - ${item.rarity}</div>
+        </div>
         <div class="item-price">${item.price} gold</div>
-        <button class="buy-btn" data-item-id="${item.id}">Buy</button>
       `;
-      const buyBtn = li.querySelector('.buy-btn');
-      buyBtn.addEventListener('click', () => {
-        this.socket.emit('buyItem', { npcId, itemId: item.item_id });
+      
+      // Add drag start handler
+      itemDiv.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          ...item,
+          source: 'shop',
+          item_id: item.item_id,
+          price: item.price
+        }));
+        itemDiv.classList.add('dragging');
       });
-      ul.appendChild(li);
+      
+      itemDiv.addEventListener('dragend', (e) => {
+        itemDiv.classList.remove('dragging');
+      });
+      
+      this.shopItems.appendChild(itemDiv);
     });
-    this.shopItems.appendChild(ul);
   }
 
   showInventoryModal() {
     if (this.inventoryModal) {
-      this.inventoryModal.classList.add('show');
+      this.inventoryModal.style.display = 'block';
       // Request inventory
       this.socket.emit('getInventory');
     }
@@ -917,7 +1034,7 @@ class RegnumMap {
 
   hideInventoryModal() {
     if (this.inventoryModal) {
-      this.inventoryModal.classList.remove('show');
+      this.inventoryModal.style.display = 'none';
     }
   }
 
@@ -928,7 +1045,12 @@ class RegnumMap {
     this.inventoryItems.innerHTML = '';
     
     // Filter items for current tab
-    const tabItems = inventory.filter(item => item.tab_id === this.currentInventoryTab);
+    let tabItems = inventory.filter(item => item.tab_id === this.currentInventoryTab);
+    
+    // Filter out items that are currently in the transaction list (sell tab)
+    const transactionSellItems = this.transactionList.filter(item => item.transactionType === 'sell');
+    const transactionItemIds = new Set(transactionSellItems.map(item => item.id));
+    tabItems = tabItems.filter(item => !transactionItemIds.has(item.id));
     
     if (tabItems.length === 0) {
       const emptyDiv = document.createElement('div');
@@ -953,7 +1075,10 @@ class RegnumMap {
       
       // Add drag start handler
       itemDiv.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify(item));
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          ...item,
+          source: 'inventory'
+        }));
         itemDiv.classList.add('dragging');
       });
       
@@ -961,15 +1086,10 @@ class RegnumMap {
         itemDiv.classList.remove('dragging');
       });
       
-      // Remove click handler for moving - now done by drag/drop
-      // itemDiv.addEventListener('click', () => {
-      //   this.showItemContextMenu(item);
-      // });
-      
-      // Add right-click handler for dropping items
+      // Add right-click handler for item actions
       itemDiv.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        this.dropItem(item.id, 1);
+        this.showItemContextMenu(e, item);
       });
       
       this.inventoryItems.appendChild(itemDiv);
@@ -993,27 +1113,6 @@ class RegnumMap {
     this.socket.emit('getInventory');
   }
 
-  // showItemContextMenu is no longer used - drag and drop handles moving
-  // showItemContextMenu(item) {
-  //   // Create a simple context menu for moving items between tabs
-  //   const menuOptions = [];
-  //   for (let tab = 1; tab <= 5; tab++) {
-  //     if (tab !== this.currentInventoryTab) {
-  //       menuOptions.push({
-  //         label: `Move to Tab ${tab}`,
-  //         action: () => this.moveItemToTab(item, tab)
-  //       });
-  //     }
-  //   }
-  //   
-  //   // Simple implementation - just show first available option
-  //   if (menuOptions.length > 0) {
-  //     if (confirm(`Move ${item.name} to ${menuOptions[0].label.toLowerCase()}?`)) {
-  //       menuOptions[0].action();
-  //     }
-  //   }
-  // }
-
   moveItemToTab(item, targetTab) {
     // Move item to new tab
     this.socket.emit('moveItemToTab', {
@@ -1022,23 +1121,297 @@ class RegnumMap {
     });
   }
 
-  // moveItem is no longer used - drag and drop handles moving
-  // moveItem(itemId, fromTab, toTab) {
-  //   this.socket.emit('moveItem', {
-  //     itemId,
-  //     fromTab,
-  //     toTab
-  //   });
-  // }
+  showItemContextMenu(e, item) {
+    // Remove any existing context menu
+    const existingMenu = document.querySelector('.item-context-menu');
+    if (existingMenu) existingMenu.remove();
 
-  dropItem(inventoryId, quantity) {
-    if (confirm('Are you sure you want to drop this item?')) {
-      this.socket.emit('dropItem', {
-        inventoryId,
-        quantity
+    // Create context menu
+    const menu = document.createElement('div');
+    menu.className = 'item-context-menu';
+    menu.style.position = 'absolute';
+    menu.style.left = `${e.pageX}px`;
+    menu.style.top = `${e.pageY}px`;
+    menu.style.background = '#333';
+    menu.style.border = '1px solid #555';
+    menu.style.borderRadius = '4px';
+    menu.style.padding = '5px';
+    menu.style.zIndex = '1002';
+
+    // Drop option
+    const dropOption = document.createElement('div');
+    dropOption.textContent = 'Drop';
+    dropOption.style.padding = '5px 10px';
+    dropOption.style.cursor = 'pointer';
+    dropOption.style.color = '#fff';
+    dropOption.addEventListener('mouseenter', () => dropOption.style.background = '#555');
+    dropOption.addEventListener('mouseleave', () => dropOption.style.background = 'transparent');
+    dropOption.addEventListener('click', () => {
+      this.dropItem(item.id, 1);
+      menu.remove();
+    });
+    menu.appendChild(dropOption);
+
+    // Add to document
+    document.body.appendChild(menu);
+
+    // Remove menu when clicking elsewhere
+    const removeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', removeMenu);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', removeMenu), 10);
+  }
+
+  switchTransactionTab(tabType) {
+    this.currentTransactionTab = tabType;
+    
+    // Update tab button styles
+    const tabButtons = this.transactionTabs.querySelectorAll('.transaction-tab-button');
+    tabButtons.forEach(button => {
+      if (button.dataset.tab === tabType) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+    
+    // Filter and display transaction items for current tab
+    this.displayTransactionItems();
+  }
+
+  addItemToTransaction(itemData, dragSource) {
+    // Auto-switch tab based on item source
+    if (itemData.source === 'shop') {
+      this.switchTransactionTab('buy');
+    } else if (itemData.source === 'inventory') {
+      this.switchTransactionTab('sell');
+    }
+    
+    // Check if item already exists in transaction list
+    const existingIndex = this.transactionList.findIndex(item => 
+      item.id === itemData.id && item.source === itemData.source
+    );
+    
+    if (existingIndex >= 0) {
+      // Increase quantity if stackable
+      if (itemData.stackable) {
+        this.transactionList[existingIndex].quantity = 
+          Math.min(this.transactionList[existingIndex].quantity + 1, itemData.quantity || 1);
+      }
+    } else {
+      // Add new item
+      this.transactionList.push({
+        ...itemData,
+        quantity: 1,
+        transactionType: this.currentTransactionTab
       });
     }
+    
+    this.displayTransactionItems();
+    
+    // Refresh inventory display to hide items in transaction
+    if (itemData.source === 'inventory') {
+      this.socket.emit('getInventory');
+    }
   }
+
+  displayTransactionItems() {
+    if (!this.transactionItems) return;
+    
+    // Clear existing items
+    this.transactionItems.innerHTML = '';
+    
+    // Filter items for current tab
+    const tabItems = this.transactionList.filter(item => 
+      item.transactionType === this.currentTransactionTab
+    );
+    
+    if (tabItems.length === 0) {
+      this.transactionItems.innerHTML = '<div style="text-align: center; color: #ccc; padding: 20px;">Drag items here to start a transaction</div>';
+      return;
+    }
+    
+    tabItems.forEach((item, index) => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'transaction-item';
+      
+      const price = this.currentTransactionTab === 'buy' ? 
+        item.price : Math.floor(item.value * 0.5);
+      
+      itemDiv.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${item.name}</div>
+          <div class="item-details">${item.type} - ${item.rarity}</div>
+        </div>
+        <div class="item-price">${price}g x${item.quantity}</div>
+        <button class="remove-item" data-index="${index}">×</button>
+      `;
+      
+      // Add remove button handler
+      const removeBtn = itemDiv.querySelector('.remove-item');
+      removeBtn.addEventListener('click', () => {
+        this.removeItemFromTransaction(index);
+      });
+      
+      this.transactionItems.appendChild(itemDiv);
+    });
+  }
+
+  removeItemFromTransaction(index) {
+    this.transactionList.splice(index, 1);
+    this.displayTransactionItems();
+    
+    // Refresh inventory display to show items removed from transaction
+    this.socket.emit('getInventory');
+  }
+
+  confirmTransactionAction() {
+    if (this.transactionList.length === 0) {
+      alert('No items in transaction');
+      return;
+    }
+    
+    const tabItems = this.transactionList.filter(item => 
+      item.transactionType === this.currentTransactionTab
+    );
+    
+    if (tabItems.length === 0) {
+      alert('No items in current transaction tab');
+      return;
+    }
+    
+    if (this.currentTransactionTab === 'buy') {
+      // Process buy transaction
+      const buyData = tabItems.map(item => ({
+        itemId: item.item_id,
+        quantity: item.quantity
+      }));
+      
+      this.socket.emit('buyItems', { 
+        npcId: this.currentShopNpcId, 
+        items: buyData 
+      });
+    } else if (this.currentTransactionTab === 'sell') {
+      // Process sell transaction
+      const sellData = tabItems.map(item => ({
+        inventoryId: item.id,
+        quantity: item.quantity
+      }));
+      
+      this.socket.emit('sellItems', { items: sellData });
+    }
+  }
+
+  clearTransactionList() {
+    this.transactionList = [];
+    this.displayTransactionItems();
+    
+    // Refresh inventory to show items that were in transaction
+    this.socket.emit('getInventory');
+  }
+
+  playTransactionSound() {
+    try {
+      const audio = new Audio('https://cor-forum.de/regnum/datengrab/res/SOUND/50853-Ui%20item%20sell%201.ogg');
+      audio.volume = 0.3; // Set volume to 30% to not be too loud
+      audio.play().catch(e => console.log('Audio play failed:', e));
+    } catch (error) {
+      console.log('Audio playback error:', error);
+    }
+  }
+
+  showTransactionMessage(data) {
+    if (!this.transactionItems) return;
+    
+    // Create message element
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'transaction-message';
+    messageDiv.style.position = 'absolute';
+    messageDiv.style.top = '50%';
+    messageDiv.style.left = '50%';
+    messageDiv.style.transform = 'translate(-50%, -50%)';
+    messageDiv.style.color = '#ff8c00'; // Orange color
+    messageDiv.style.fontSize = '16px';
+    messageDiv.style.fontWeight = 'bold';
+    messageDiv.style.textAlign = 'center';
+    messageDiv.style.zIndex = '1005';
+    messageDiv.style.pointerEvents = 'none';
+    
+    if (data.type === 'buy') {
+      messageDiv.textContent = `Purchase completed! Total cost: ${data.totalCost} gold`;
+    } else if (data.type === 'sell') {
+      messageDiv.textContent = `Sale completed! Total earned: ${data.totalGoldEarned} gold`;
+    }
+    
+    // Add to transaction items container
+    this.transactionItems.appendChild(messageDiv);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (messageDiv.parentNode) {
+        messageDiv.parentNode.removeChild(messageDiv);
+      }
+    }, 3000);
+  }
+
+  setupWindowDragging() {
+    const windows = [this.shopModal, this.inventoryModal];
+    
+    windows.forEach(window => {
+      if (!window) return;
+      
+      const header = window.querySelector('.window-header');
+      if (!header) return;
+      
+      header.addEventListener('mousedown', (e) => {
+        this.draggedWindow = window;
+        const rect = window.getBoundingClientRect();
+        this.dragOffset.x = e.clientX - rect.left;
+        this.dragOffset.y = e.clientY - rect.top;
+        
+        // Bring window to front
+        window.style.zIndex = '1004';
+        
+        document.addEventListener('mousemove', this.handleWindowDrag);
+        document.addEventListener('mouseup', this.handleWindowDragEnd);
+        
+        e.preventDefault();
+      });
+    });
+  }
+
+  handleWindowDrag = (e) => {
+    if (!this.draggedWindow) return;
+    
+    const newX = e.clientX - this.dragOffset.x;
+    const newY = e.clientY - this.dragOffset.y;
+    
+    // Allow windows to be dragged out of viewport but keep 30px visible
+    const minX = -this.draggedWindow.offsetWidth + 30;
+    const maxX = window.innerWidth - 30;
+    const minY = -this.draggedWindow.offsetHeight + 30;
+    const maxY = window.innerHeight - 30;
+    
+    const clampedX = Math.max(minX, Math.min(newX, maxX));
+    const clampedY = Math.max(minY, Math.min(newY, maxY));
+    
+    this.draggedWindow.style.left = clampedX + 'px';
+    this.draggedWindow.style.top = clampedY + 'px';
+  };
+
+  handleWindowDragEnd = () => {
+    if (this.draggedWindow) {
+      // Reset z-index to normal
+      this.draggedWindow.style.zIndex = '1002';
+      this.draggedWindow = null;
+    }
+    
+    document.removeEventListener('mousemove', this.handleWindowDrag);
+    document.removeEventListener('mouseup', this.handleWindowDragEnd);
+  };
 }
 
 // Initialize the map when the DOM is ready

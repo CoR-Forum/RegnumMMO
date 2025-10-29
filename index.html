@@ -34,6 +34,7 @@
       <span id="stamina-text">100/100</span>
       <span id="stamina-regen">(+0.5/s)</span>
     </div>
+    <div id="gold-display">Gold: 0</div>
     <div id="location-display">Location: X: 0, Y: 0</div>
     <div id="zoom-display">Zoom: 3</div>
     <div id="latency-display">Latency: -- ms</div>
@@ -94,25 +95,54 @@
   <!-- Shop Modal -->
   <div id="shop-modal">
     <div id="shop-content">
-      <button id="close-shop-modal">&times;</button>
-      <h2 id="shop-title">Shop</h2>
-      <div id="shop-items"></div>
+      <div class="window-header">
+        <div class="window-title" id="shop-title">Shop</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-shop-modal">&times;</button>
+        </div>
+      </div>
+      <div class="window-body">
+        <div id="shop-container">
+          <div id="shop-items-section">
+            <h3>Shop Items</h3>
+            <div id="shop-items"></div>
+          </div>
+          <div id="transaction-section">
+            <h3>Transaction</h3>
+            <div id="transaction-tabs">
+              <button class="transaction-tab-button active" data-tab="buy">Buy</button>
+              <button class="transaction-tab-button" data-tab="sell">Sell</button>
+            </div>
+            <div id="transaction-items"></div>
+            <div id="transaction-actions">
+              <button id="confirm-transaction">Confirm</button>
+              <button id="clear-transaction">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Inventory Modal -->
   <div id="inventory-modal">
     <div id="inventory-content">
-      <button id="close-inventory-modal">&times;</button>
-      <h2>Inventory</h2>
-      <div id="inventory-tabs">
-        <button class="tab-button active" data-tab="1">Tab 1</button>
-        <button class="tab-button" data-tab="2">Tab 2</button>
-        <button class="tab-button" data-tab="3">Tab 3</button>
-        <button class="tab-button" data-tab="4">Tab 4</button>
-        <button class="tab-button" data-tab="5">Tab 5</button>
+      <div class="window-header">
+        <div class="window-title">Inventory</div>
+        <div class="window-controls">
+          <button class="window-close" id="close-inventory-modal">&times;</button>
+        </div>
       </div>
-      <div id="inventory-items"></div>
+      <div class="window-body">
+        <div id="inventory-tabs">
+          <button class="tab-button active" data-tab="1">1</button>
+          <button class="tab-button" data-tab="2">2</button>
+          <button class="tab-button" data-tab="3">3</button>
+          <button class="tab-button" data-tab="4">4</button>
+          <button class="tab-button" data-tab="5">5</button>
+        </div>
+        <div id="inventory-items"></div>
+      </div>
     </div>
   </div>
 

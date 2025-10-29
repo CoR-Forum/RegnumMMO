@@ -350,6 +350,7 @@ async function initDatabase() {
       current_mana INT DEFAULT 0,
       max_stamina INT DEFAULT 0,
       current_stamina INT DEFAULT 0,
+      gold INT DEFAULT 100,
       FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS positions (
@@ -554,6 +555,15 @@ app.get('/api/characters', (req, res) => {
   });
 });
 
+app.get('/api/character/:id', (req, res) => {
+  const characterId = req.params.id;
+  db.query('SELECT * FROM characters WHERE id = ? AND user_id = ?', [characterId, req.userId], (err, results) => {
+    if (err) return sendError(res, err.message);
+    if (results.length === 0) return sendError(res, 'Character not found', 404);
+    res.json(results[0]);
+  });
+});
+
 app.get('/api/game-data', (req, res) => {
   res.json(gameData);
 });
@@ -586,7 +596,7 @@ app.post('/api/characters', (req, res) => {
     const maxMana = attrs.int * 10;
     const maxStamina = attrs.str * 10;
 
-    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina], (err, result) => {
+    db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina, gold) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina, 100], (err, result) => {
       if (err) return sendError(res, err.message);
       // Insert default position
       db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?)', [result.insertId, DEFAULT_POS.x, DEFAULT_POS.y], (err2) => {
@@ -703,52 +713,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('move', async (data) => {
-    if (!(await isSessionValid(socket.sessionId))) {
-      socket.emit('logout');
-      socket.disconnect();
-      return;
-    }
-    if (!players[socket.id]) return;
-
-    const player = players[socket.id];
-    let newPos;
-
-    // Click movement disabled for now
-    /*
-    if (data.x !== undefined && data.y !== undefined) {
-      // Click movement: direct position
-      newPos = { x: data.x, y: data.y };
-    } else {
-      return; // Invalid data
-    }
-    */
-
-    return; // Disabled
-
-    // Clamp position to map bounds
-    newPos.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, newPos.x));
-    newPos.y = Math.max(MAP_BOUNDS.minY, Math.min(MAP_BOUNDS.maxY, newPos.y));
-
-    // Valid move
-    player.position = newPos;
-    player.lastPos = { ...newPos };
-    player.lastTime = Date.now();
-
-    // Update DB every 1 second to avoid spamming
-    if (Date.now() - player.lastDbUpdate > 1000) {
-      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE x=VALUES(x), y=VALUES(y)', [socket.characterId, newPos.x, newPos.y]);
-      player.lastDbUpdate = Date.now();
-    }
-
-    // Broadcast to others
-    socket.broadcast.emit('playerMoved', { id: socket.id, position: newPos });
-    // Send back to client
-    socket.emit('moved', newPos);
-  });
-
-
-
   socket.on('ping', (start) => {
     socket.emit('pong', start);
   });
@@ -777,72 +741,101 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('buyItem', async (data) => {
-    const { npcId, itemId, quantity = 1 } = data;
+  socket.on('buyItems', async (data) => {
+    const { npcId, items } = data;
     if (!players[socket.id]) return;
     
     try {
-      // Get item price
-      const [shopItem] = await db.promise().query(`
-        SELECT si.price, si.quantity as stock, i.name, i.value, i.stackable
-        FROM shop_items si
-        JOIN items i ON si.item_id = i.id
-        WHERE si.npc_id = ? AND si.item_id = ?
-      `, [npcId, itemId]);
+      let totalCost = 0;
       
-      if (!shopItem || shopItem.length === 0) {
-        socket.emit('error', 'Item not available in this shop');
+      // Calculate total cost and validate items
+      for (const item of items) {
+        const [shopItem] = await db.promise().query(`
+          SELECT si.price, si.quantity as stock, i.name, i.value, i.stackable
+          FROM shop_items si
+          JOIN items i ON si.item_id = i.id
+          WHERE si.npc_id = ? AND si.item_id = ?
+        `, [npcId, item.itemId]);
+        
+        if (!shopItem || shopItem.length === 0) {
+          socket.emit('error', `Item not available in this shop`);
+          return;
+        }
+        
+        const shopItemData = shopItem[0];
+        if (shopItemData.stock < item.quantity) {
+          socket.emit('error', `Not enough ${shopItemData.name} in stock`);
+          return;
+        }
+        
+        totalCost += shopItemData.price * item.quantity;
+      }
+      
+      // Check if player has enough gold
+      const [playerGold] = await db.promise().query(
+        'SELECT gold FROM characters WHERE id = ?',
+        [socket.characterId]
+      );
+      
+      if (playerGold[0].gold < totalCost) {
+        socket.emit('error', 'Not enough gold');
         return;
       }
       
-      const item = shopItem[0];
-      const totalCost = item.price * quantity;
-      
-      // Check if player has enough gold (we'll assume they have a gold field, for now just allow)
-      // TODO: Add gold system
-      
-      // Check stock
-      if (item.stock < quantity) {
-        socket.emit('error', 'Not enough items in stock');
-        return;
-      }
-
-      if (item.stackable) {
-        // For stackable items, check if player already has this item
-        const [existingRows] = await db.promise().query(
-          'SELECT id, quantity FROM player_inventory WHERE character_id = ? AND item_id = ?',
-          [socket.characterId, itemId]
-        );
-
-        if (existingRows.length > 0) {
-          // Increase quantity
-          await db.promise().query(
-            'UPDATE player_inventory SET quantity = quantity + ? WHERE id = ?',
-            [quantity, existingRows[0].id]
+      // Process each item purchase
+      for (const item of items) {
+        const [shopItem] = await db.promise().query(`
+          SELECT si.price, si.quantity as stock, i.name, i.value, i.stackable
+          FROM shop_items si
+          JOIN items i ON si.item_id = i.id
+          WHERE si.npc_id = ? AND si.item_id = ?
+        `, [npcId, item.itemId]);
+        
+        const shopItemData = shopItem[0];
+        
+        if (shopItemData.stackable) {
+          // For stackable items, check if player already has this item
+          const [existingRows] = await db.promise().query(
+            'SELECT id, quantity FROM player_inventory WHERE character_id = ? AND item_id = ?',
+            [socket.characterId, item.itemId]
           );
+
+          if (existingRows.length > 0) {
+            // Increase quantity
+            await db.promise().query(
+              'UPDATE player_inventory SET quantity = quantity + ? WHERE id = ?',
+              [item.quantity, existingRows[0].id]
+            );
+          } else {
+            // Add new item to tab 1
+            await db.promise().query(
+              'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, ?)',
+              [socket.characterId, item.itemId, item.quantity]
+            );
+          }
         } else {
-          // Add new item to tab 1
-          await db.promise().query(
-            'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, ?)',
-            [socket.characterId, itemId, quantity]
-          );
+          // For non-stackable items, add each one as separate entries
+          for (let i = 0; i < item.quantity; i++) {
+            await db.promise().query(
+              'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, 1)',
+              [socket.characterId, item.itemId]
+            );
+          }
         }
-      } else {
-        // For non-stackable items, add each one as separate entries
-        for (let i = 0; i < quantity; i++) {
-          await db.promise().query(
-            'INSERT INTO player_inventory (character_id, item_id, tab_id, quantity) VALUES (?, ?, 1, 1)',
-            [socket.characterId, itemId]
-          );
-        }
+        
+        // Update shop stock
+        await db.promise().query(`
+          UPDATE shop_items SET quantity = quantity - ? WHERE npc_id = ? AND item_id = ?
+        `, [item.quantity, npcId, item.itemId]);
       }
       
-      // Update shop stock
-      await db.promise().query(`
-        UPDATE shop_items SET quantity = quantity - ? WHERE npc_id = ? AND item_id = ?
-      `, [quantity, npcId, itemId]);
+      // Deduct gold from player
+      await db.promise().query(
+        'UPDATE characters SET gold = gold - ? WHERE id = ?',
+        [totalCost, socket.characterId]
+      );
       
-      socket.emit('itemPurchased', { itemId, quantity, itemName: item.name });
+      socket.emit('transactionComplete', { type: 'buy', totalCost });
       
       // Send updated inventory to client
       const [inventory] = await db.promise().query(`
@@ -855,9 +848,16 @@ io.on('connection', (socket) => {
       
       socket.emit('inventoryUpdate', inventory);
       
+      // Send updated gold to client
+      const [updatedGold] = await db.promise().query(
+        'SELECT gold FROM characters WHERE id = ?',
+        [socket.characterId]
+      );
+      socket.emit('goldUpdate', { gold: updatedGold[0].gold });
+      
     } catch (error) {
-      console.error('Error buying item:', error);
-      socket.emit('error', 'Failed to purchase item');
+      console.error('Error buying items:', error);
+      socket.emit('error', 'Failed to purchase items');
     }
   });
 
@@ -908,34 +908,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('moveItem', async (data) => {
-    const { inventoryId, toTab } = data;
-    if (!socket.characterId) return;
-
-    try {
-      // Move item to new tab
-      await db.promise().query(
-        'UPDATE player_inventory SET tab_id = ? WHERE id = ? AND character_id = ?',
-        [toTab, inventoryId, socket.characterId]
-      );
-
-      // Send updated inventory to client
-      const [inventory] = await db.promise().query(`
-        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
-        FROM player_inventory pi
-        JOIN items i ON pi.item_id = i.id
-        WHERE pi.character_id = ?
-        ORDER BY pi.tab_id
-      `, [socket.characterId]);
-      
-      socket.emit('inventoryUpdate', inventory);
-      
-    } catch (error) {
-      console.error('Error moving item:', error);
-      socket.emit('error', 'Failed to move item');
-    }
-  });
-
   socket.on('dropItem', async (data) => {
     const { inventoryId, quantity = 1 } = data;
     if (!socket.characterId) return;
@@ -976,6 +948,104 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error dropping item:', error);
       socket.emit('error', 'Failed to drop item');
+    }
+  });
+
+  socket.on('sellItems', async (data) => {
+    const { items } = data;
+    if (!socket.characterId) return;
+
+    // Check if player is near a merchant NPC
+    const player = players[socket.id];
+    if (!player) return;
+
+    const INTERACTION_DISTANCE = 50; // Same distance as NPC interaction
+    let nearMerchant = false;
+    for (const npc of Object.values(npcs)) {
+      if (npc.npc_type === 'merchant') {
+        const distance = Math.sqrt(
+          Math.pow(npc.position.x - player.position.x, 2) +
+          Math.pow(npc.position.y - player.position.y, 2)
+        );
+        if (distance <= INTERACTION_DISTANCE) {
+          nearMerchant = true;
+          break;
+        }
+      }
+    }
+
+    if (!nearMerchant) {
+      socket.emit('error', 'You must be near a merchant to sell items');
+      return;
+    }
+
+    try {
+      let totalGoldEarned = 0;
+      
+      // Process each item sale
+      for (const item of items) {
+        // Get item details
+        const [itemDetails] = await db.promise().query(`
+          SELECT pi.quantity as inventory_quantity, i.value, i.name
+          FROM player_inventory pi
+          JOIN items i ON pi.item_id = i.id
+          WHERE pi.id = ? AND pi.character_id = ?
+        `, [item.inventoryId, socket.characterId]);
+
+        if (itemDetails.length === 0) {
+          socket.emit('error', 'Item not found');
+          return;
+        }
+
+        const itemData = itemDetails[0];
+        const sellQuantity = Math.min(item.quantity, itemData.inventory_quantity);
+        const sellValue = Math.floor(itemData.value * 0.5 * sellQuantity); // Sell for 50% of value
+        totalGoldEarned += sellValue;
+
+        if (itemData.inventory_quantity > sellQuantity) {
+          // Reduce quantity
+          await db.promise().query(
+            'UPDATE player_inventory SET quantity = quantity - ? WHERE id = ?',
+            [sellQuantity, item.inventoryId]
+          );
+        } else {
+          // Remove item completely
+          await db.promise().query(
+            'DELETE FROM player_inventory WHERE id = ?',
+            [item.inventoryId]
+          );
+        }
+      }
+
+      // Add gold to player
+      await db.promise().query(
+        'UPDATE characters SET gold = gold + ? WHERE id = ?',
+        [totalGoldEarned, socket.characterId]
+      );
+
+      socket.emit('transactionComplete', { type: 'sell', totalGoldEarned });
+
+      // Send updated inventory to client
+      const [inventory] = await db.promise().query(`
+        SELECT pi.*, i.name, i.description, i.type, i.rarity, i.value, i.level_requirement, i.stackable
+        FROM player_inventory pi
+        JOIN items i ON pi.item_id = i.id
+        WHERE pi.character_id = ?
+        ORDER BY pi.tab_id
+      `, [socket.characterId]);
+      
+      socket.emit('inventoryUpdate', inventory);
+
+      // Send updated gold to client
+      const [updatedGold] = await db.promise().query(
+        'SELECT gold FROM characters WHERE id = ?',
+        [socket.characterId]
+      );
+      socket.emit('goldUpdate', { gold: updatedGold[0].gold });
+      
+    } catch (error) {
+      console.error('Error selling items:', error);
+      socket.emit('error', 'Failed to sell items');
     }
   });
 
@@ -1183,8 +1253,6 @@ setInterval(() => {
     }
   });
 }, 1000); // Update NPCs every second
-
-// Global update loop
 
 // Session validation endpoint
 app.post('/api/validate-session', (req, res) => {

@@ -8,9 +8,9 @@ class RegnumMap {
   static MAP_SETTINGS = Object.freeze({
     gameDimensions: [6157, 6192],
     imageDimensions: [6157, 6192], // Match game dimensions for 1:1 mapping
-    initialZoom: 5,
+    initialZoom: 7,
     maxZoom: 9,
-    minZoom: 5,
+    minZoom: 1,
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
       Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>

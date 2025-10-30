@@ -826,19 +826,15 @@ class RegnumMap {
   addNPC(id, npc) {
     const latLng = this.toLatLng([npc.position.x, npc.position.y]);
     
-    // Different icons based on NPC type
-    const iconUrls = {
-      'civilian': 'https://img.icons8.com/material-outlined/24/person-male.png',
-      'merchant': 'https://img.icons8.com/material-outlined/24/shop.png',
-      'quest_giver': 'https://img.icons8.com/material-outlined/24/quest.png',
-      'guard': 'https://img.icons8.com/material-outlined/24/shield.png',
-      'healer': 'https://img.icons8.com/material-outlined/24/medical-heart.png',
-      'blacksmith': 'https://img.icons8.com/material-outlined/24/anvil.png',
-      'king': 'https://img.icons8.com/material-outlined/24/crown.png',
-      'warlord': 'https://img.icons8.com/material-outlined/24/sword.png'
-    };
+    // Different icons based on NPC features
+    let iconUrl = 'https://img.icons8.com/material-outlined/24/person-male.png'; // default
     
-    const iconUrl = iconUrls[npc.npc_type] || iconUrls['civilian'];
+    if (npc.has_shop) iconUrl = 'https://img.icons8.com/material-outlined/24/shop.png';
+    else if (npc.has_guard_duties) iconUrl = 'https://img.icons8.com/material-outlined/24/shield.png';
+    else if (npc.has_healing) iconUrl = 'https://img.icons8.com/material-outlined/24/medical-heart.png';
+    else if (npc.has_blacksmith) iconUrl = 'https://img.icons8.com/material-outlined/24/anvil.png';
+    else if (npc.has_quests) iconUrl = 'https://img.icons8.com/material-outlined/24/quest.png';
+    
     const npcIcon = L.icon({
       iconUrl: iconUrl,
       iconSize: [20, 20],
@@ -847,20 +843,9 @@ class RegnumMap {
     
     const marker = L.marker(latLng, { icon: npcIcon }).addTo(this.map);
     
-    // Different popup content based on type
-    const typeLabels = {
-      'civilian': 'Citizen',
-      'merchant': 'Merchant',
-      'quest_giver': 'Quest Giver',
-      'guard': 'Guard',
-      'healer': 'Healer',
-      'blacksmith': 'Blacksmith',
-      'king': 'King',
-      'warlord': 'Warlord'
-    };
-    
-    const typeLabel = typeLabels[npc.npc_type] || 'NPC';
-    marker.bindPopup(`${npc.name} (${typeLabel})<br>Level ${npc.level} - ${npc.realm}`);
+    // Display title or default to "NPC"
+    const displayTitle = npc.title || 'NPC';
+    marker.bindPopup(`${npc.name} (${displayTitle})<br>Level ${npc.level} - ${npc.realm}`);
     marker.bindTooltip(`${npc.name} (Lv.${npc.level})`, { permanent: true, direction: 'top', offset: [0, -20] });
     
     marker.on('click', () => this.socket.emit('interactNPC', id));
@@ -1724,7 +1709,7 @@ class RegnumMap {
       npcDiv.innerHTML = `
         <div class="npc-info">
           <div class="npc-name">${npc.name}</div>
-          <div class="npc-details">Level ${npc.level} - ${npc.realm} - ${npc.npc_type}</div>
+          <div class="npc-details">Level ${npc.level} - ${npc.realm} - ${npc.title || 'Citizen'}</div>
         </div>
         <div class="npc-actions">
           <button class="edit-btn" data-id="${npc.id}">Edit</button>
@@ -1858,13 +1843,13 @@ class RegnumMap {
       // Support both DB rows (x,y) and objects with position { x, y }
       const posX = (npc.position && npc.position.x) ?? npc.x ?? '';
       const posY = (npc.position && npc.position.y) ?? npc.y ?? '';
-      const npcType = npc.npc_type ?? npc.type ?? '';
+      const npcTitle = npc.title ?? '';
 
       form['npc-id'].value = npc.id ?? '';
       form['npc-name'].value = npc.name ?? '';
       form['npc-level'].value = npc.level ?? '';
       form['npc-realm'].value = npc.realm ?? '';
-      form['npc-type'].value = npcType;
+      form['npc-title'].value = npcTitle;
       form['npc-x'].value = posX;
       form['npc-y'].value = posY;
       form['npc-roaming-type'].value = npc.roaming_type || 'static';
@@ -1980,7 +1965,7 @@ class RegnumMap {
       name: form['npc-name'].value,
       level: parseInt(form['npc-level'].value),
       realm: form['npc-realm'].value,
-      npc_type: form['npc-type'].value,
+      title: form['npc-title'].value,
       position: {
         x: parseFloat(form['npc-x'].value),
         y: parseFloat(form['npc-y'].value)

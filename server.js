@@ -22,29 +22,22 @@ const redisClient = redis.createClient({
 console.log('Connecting to Redis at', process.env.REDIS_HOST || 'localhost');
 redisClient.connect().catch(console.error);
 
-// NPC Type definitions
-const NPC_TYPES = {
-  CIVILIAN: 'civilian',
-  MERCHANT: 'merchant',
-  QUEST_GIVER: 'quest_giver',
-  GUARD: 'guard',
-  HEALER: 'healer',
-  BLACKSMITH: 'blacksmith',
-  KING: 'king',
-  WARLORD: 'warlord'
-};
-
-// NPC interaction handlers
+// NPC interaction handlers based on features
 const npcInteractions = {
-  [NPC_TYPES.CIVILIAN]: (npc, socket) => {
+  default: (npc, socket) => {
+    let message = `Hello, I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` of ${npc.realm}.`;
     socket.emit('npcMessage', { 
       npcId: npc.id, 
-      message: `Hello, I am ${npc.name}, a humble citizen of ${npc.realm}.` 
+      message: message
     });
   },
 
-  [NPC_TYPES.MERCHANT]: (npc, socket) => {
-    let message = `Greetings traveler! I am ${npc.name}, a merchant from ${npc.realm}.`;
+  shop: (npc, socket) => {
+    let message = `Greetings traveler! I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` from ${npc.realm}.`;
     if (npc.has_shop) {
       message += ` Would you like to see my wares?`;
       // Send shop data to client
@@ -56,8 +49,10 @@ const npcInteractions = {
     });
   },
 
-  [NPC_TYPES.QUEST_GIVER]: (npc, socket) => {
-    let message = `Ah, an adventurer! I am ${npc.name} of ${npc.realm}.`;
+  quests: (npc, socket) => {
+    let message = `Ah, an adventurer! I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` of ${npc.realm}.`;
     if (npc.has_quests) {
       message += ` I have quests that need doing. Are you interested?`;
       // TODO: Show quest dialog
@@ -68,8 +63,10 @@ const npcInteractions = {
     });
   },
 
-  [NPC_TYPES.GUARD]: (npc, socket) => {
-    let message = `Halt! I am ${npc.name}, guardian of ${npc.realm}.`;
+  guard: (npc, socket) => {
+    let message = `Halt! I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` of ${npc.realm}.`;
     if (npc.has_guard_duties) {
       message += ` State your business.`;
     }
@@ -79,8 +76,10 @@ const npcInteractions = {
     });
   },
 
-  [NPC_TYPES.HEALER]: (npc, socket) => {
-    let message = `Welcome, weary traveler. I am ${npc.name}, a healer from ${npc.realm}.`;
+  healer: (npc, socket) => {
+    let message = `Welcome, weary traveler. I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` from ${npc.realm}.`;
     if (npc.has_healing) {
       message += ` I can mend your wounds for a small fee.`;
       // TODO: Healing service
@@ -91,33 +90,13 @@ const npcInteractions = {
     });
   },
 
-  [NPC_TYPES.BLACKSMITH]: (npc, socket) => {
-    let message = `The forge calls! I am ${npc.name}, master blacksmith of ${npc.realm}.`;
+  blacksmith: (npc, socket) => {
+    let message = `The forge calls! I am ${npc.name}`;
+    if (npc.title) message += `, ${npc.title}`;
+    message += ` of ${npc.realm}.`;
     if (npc.has_blacksmith) {
       message += ` Need your weapons repaired or upgraded?`;
       // TODO: Blacksmith services
-    }
-    socket.emit('npcMessage', { 
-      npcId: npc.id, 
-      message: message
-    });
-  },
-
-  [NPC_TYPES.KING]: (npc, socket) => {
-    let message = `Approach with respect! I am ${npc.name}, ruler of ${npc.realm}.`;
-    if (npc.has_quests) {
-      message += ` What brings you to my throne?`;
-    }
-    socket.emit('npcMessage', { 
-      npcId: npc.id, 
-      message: message
-    });
-  },
-
-  [NPC_TYPES.WARLORD]: (npc, socket) => {
-    let message = `Strength and honor! I am ${npc.name}, warlord of ${npc.realm}.`;
-    if (npc.has_quests) {
-      message += ` Prove your worth in battle!`;
     }
     socket.emit('npcMessage', { 
       npcId: npc.id, 
@@ -196,8 +175,8 @@ async function importExampleNPCs() {
     console.log('Importing example NPCs to database...');
     for (const npc of gameData.npcs) {
       await db.promise().query(
-        'INSERT INTO npcs (name, realm, level, x, y, npc_type, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [npc.name, npc.realm, npc.level, npc.position.x, npc.position.y, npc.npc_type, npc.roaming_type, npc.roaming_radius || 0, npc.roaming_speed || 0, npc.has_shop || false, npc.has_quests || false, npc.has_guard_duties || false, npc.has_healing || false, npc.has_blacksmith || false]
+        'INSERT INTO npcs (name, realm, level, x, y, title, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [npc.name, npc.realm, npc.level, npc.position.x, npc.position.y, npc.title || 'Citizen', npc.roaming_type, npc.roaming_radius || 0, npc.roaming_speed || 0, npc.has_shop || false, npc.has_quests || false, npc.has_guard_duties || false, npc.has_healing || false, npc.has_blacksmith || false]
       );
     }
     console.log('Example NPCs imported successfully');
@@ -218,7 +197,7 @@ async function loadNPCsFromDatabase() {
         realm: row.realm,
         position: { x: row.x, y: row.y },
         originalPosition: { x: row.x, y: row.y },
-        npc_type: row.npc_type || 'civilian',
+        title: row.title || 'Citizen',
         roaming_type: row.roaming_type || 'static',
         roaming_radius: row.roaming_radius || 0,
         roaming_speed: row.roaming_speed || 0,
@@ -375,7 +354,7 @@ async function initDatabase() {
       level INT DEFAULT 1,
       x FLOAT DEFAULT 0,
       y FLOAT DEFAULT 0,
-      npc_type VARCHAR(50) DEFAULT 'civilian',
+      title VARCHAR(255) DEFAULT 'Citizen',
       roaming_type VARCHAR(50) DEFAULT 'static',
       roaming_radius INT DEFAULT 0,
       roaming_speed FLOAT DEFAULT 0,
@@ -731,7 +710,15 @@ io.on('connection', (socket) => {
     const npc = npcs[npcId];
     if (!npc) return;
 
-    const interactionHandler = npcInteractions[npc.npc_type] || npcInteractions[NPC_TYPES.CIVILIAN];
+    // Determine interaction based on NPC features
+    let interactionType = 'default';
+    if (npc.has_shop) interactionType = 'shop';
+    else if (npc.has_guard_duties) interactionType = 'guard';
+    else if (npc.has_healing) interactionType = 'healer';
+    else if (npc.has_blacksmith) interactionType = 'blacksmith';
+    else if (npc.has_quests) interactionType = 'quests';
+
+    const interactionHandler = npcInteractions[interactionType] || npcInteractions.default;
     interactionHandler(npc, socket);
   });
 
@@ -972,7 +959,7 @@ io.on('connection', (socket) => {
     const INTERACTION_DISTANCE = 50; // Same distance as NPC interaction
     let nearMerchant = false;
     for (const npc of Object.values(npcs)) {
-      if (npc.npc_type === 'merchant') {
+      if (npc.has_shop) {
         const distance = Math.sqrt(
           Math.pow(npc.position.x - player.position.x, 2) +
           Math.pow(npc.position.y - player.position.y, 2)
@@ -1320,16 +1307,16 @@ app.get('/api/admin/npcs', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/npcs', requireAdmin, async (req, res) => {
-  const { name, level, realm, npc_type, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
+  const { name, level, realm, title, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
   
-  if (!name || !level || !realm || !npc_type || !position) {
+  if (!name || !level || !realm || !title || !position) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   
   try {
     const [result] = await db.promise().query(
-      'INSERT INTO npcs (name, level, realm, npc_type, x, y, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, level, realm, npc_type, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false]
+      'INSERT INTO npcs (name, level, realm, title, x, y, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, level, realm, title, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false]
     );
     
     // Reload NPCs into memory
@@ -1344,16 +1331,16 @@ app.post('/api/admin/npcs', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/npcs/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, level, realm, npc_type, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
+  const { name, level, realm, title, position, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith } = req.body;
   
-  if (!name || !level || !realm || !npc_type || !position) {
+  if (!name || !level || !realm || !title || !position) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   
   try {
     await db.promise().query(
-      'UPDATE npcs SET name = ?, level = ?, realm = ?, npc_type = ?, x = ?, y = ?, roaming_type = ?, roaming_radius = ?, roaming_speed = ?, has_shop = ?, has_quests = ?, has_guard_duties = ?, has_healing = ?, has_blacksmith = ? WHERE id = ?',
-      [name, level, realm, npc_type, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false, id]
+      'UPDATE npcs SET name = ?, level = ?, realm = ?, title = ?, x = ?, y = ?, roaming_type = ?, roaming_radius = ?, roaming_speed = ?, has_shop = ?, has_quests = ?, has_guard_duties = ?, has_healing = ?, has_blacksmith = ? WHERE id = ?',
+      [name, level, realm, title, position.x, position.y, roaming_type || 'static', roaming_radius || 0, roaming_speed || 0, has_shop || false, has_quests || false, has_guard_duties || false, has_healing || false, has_blacksmith || false, id]
     );
     
     // Reload NPCs into memory
@@ -1449,11 +1436,11 @@ app.delete('/api/admin/items/:id', requireAdmin, async (req, res) => {
 app.get('/api/admin/shops', requireAdmin, async (req, res) => {
   try {
     const [shops] = await db.promise().query(`
-      SELECT n.id, n.name, n.npc_type, COUNT(si.id) as item_count
+      SELECT n.id, n.name, n.title, COUNT(si.id) as item_count
       FROM npcs n
       LEFT JOIN shop_items si ON n.id = si.npc_id
-      WHERE n.npc_type = 'merchant'
-      GROUP BY n.id, n.name, n.npc_type
+      WHERE n.has_shop = true
+      GROUP BY n.id, n.name, n.title
       ORDER BY n.id
     `);
     res.json(shops);

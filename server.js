@@ -40,8 +40,6 @@ const npcInteractions = {
     message += ` from ${npc.realm}.`;
     if (npc.has_shop) {
       message += ` Would you like to see my wares?`;
-      // Send shop data to client
-      socket.emit('openShop', { npcId: npc.id, npcName: npc.name });
     }
     socket.emit('npcMessage', { 
       npcId: npc.id, 

@@ -673,65 +673,79 @@ body {
   cursor: pointer;
 }
 
-#admin-btn:hover {
-  background: #A00000;
-}
-
 #admin-modal {
   display: none;
   position: fixed;
-  z-index: 1003;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  border: 2px solid #666;
-  overflow: hidden;
-  width: 900px;
-  height: 600px;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1001;
+  justify-content: center;
+  align-items: center;
 }
 
 #admin-modal.show {
-  display: block;
-}
-
-#admin-content {
-  background: #333;
-  height: 100%;
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
-#admin-tabs {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-  background: #444;
-  padding: 10px;
-  border-bottom: 1px solid #666;
+/* Notification Modal */
+.notification-modal {
+  width: 400px;
+  max-width: 90vw;
 }
 
-.admin-tab-button {
-  background: #555;
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  margin: 0 5px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background 0.3s;
+.notification-modal .modal-body {
+  padding: 20px;
+  text-align: center;
 }
 
-.admin-tab-button:hover, .admin-tab-button.active {
-  background: #777;
+.notification-modal p {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  line-height: 1.4;
 }
 
-#admin-panel-content {
-  flex: 1;
+.notification-modal .btn {
+  min-width: 80px;
+}
+
+/* Admin Modal */
+.admin-modal {
+  width: 800px;
+  max-width: 95vw;
+  height: 600px;
+  max-height: 90vh;
+}
+
+.admin-modal .modal-body {
   padding: 20px;
   overflow-y: auto;
+}
+
+.admin-tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #555;
+}
+
+.admin-tabs .tab-button {
+  background: #333;
+  border: none;
+  padding: 10px 20px;
+  color: #ccc;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.admin-tabs .tab-button.active {
+  color: #fff;
+  border-bottom-color: #007bff;
+}
+
+.admin-tabs .tab-button:hover {
+  background: #444;
 }
 
 .admin-tab-content {
@@ -742,76 +756,46 @@ body {
   display: block;
 }
 
-.admin-section {
-  background: #444;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
 .admin-section h3 {
   margin-top: 0;
   color: #fff;
-  border-bottom: 1px solid #666;
-  padding-bottom: 10px;
 }
 
-.admin-section button {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-bottom: 20px;
-}
-
-.admin-section button:hover {
-  background: #45a049;
-}
-
-#npcs-list, #shops-list, #players-list, #items-list {
-  max-height: 400px;
-  overflow-y: auto;
+.admin-list {
+  margin-top: 20px;
 }
 
 .npc-item, .shop-item, .player-item, .item-item {
-  background: #555;
-  padding: 15px;
-  border-radius: 5px;
-  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.npc-item:hover, .shop-item:hover, .player-item:hover, .item-item:hover {
-  background: #777;
+  padding: 10px;
+  background: #333;
+  border: 1px solid #555;
+  margin-bottom: 5px;
+  border-radius: 4px;
 }
 
 .npc-info, .shop-info, .player-info, .item-info {
-  display: flex;
-  flex-direction: column;
+  flex: 1;
 }
 
 .npc-name, .shop-name, .player-name, .item-name {
   font-weight: bold;
   color: #fff;
-  font-size: 16px;
 }
 
 .npc-details, .shop-details, .player-details, .item-details {
-  font-size: 12px;
   color: #ccc;
-  margin-top: 5px;
+  font-size: 12px;
 }
 
 .npc-actions, .shop-actions, .player-actions, .item-actions {
   display: flex;
-  gap: 10px;
+  gap: 5px;
 }
 
-.npc-actions button, .shop-actions button, .player-actions button, .item-actions button {
+.edit-btn, .delete-btn {
   padding: 5px 10px;
   border: none;
   border-radius: 3px;
@@ -820,21 +804,21 @@ body {
 }
 
 .edit-btn {
-  background: #2196F3;
+  background: #007bff;
+  color: white;
+}
+
+.delete-btn {
+  background: #dc3545;
   color: white;
 }
 
 .edit-btn:hover {
-  background: #1976D2;
-}
-
-.delete-btn {
-  background: #f44336;
-  color: white;
+  background: #0056b3;
 }
 
 .delete-btn:hover {
-  background: #d32f2f;
+  background: #c82333;
 }
 
 /* Edit Modal Styles */
@@ -908,6 +892,99 @@ body {
   background: #f44336 !important;
 }
 
-#delete-npc-btn:hover, #delete-item-btn:hover, #delete-shop-item-btn:hover {
-  background: #d32f2f !important;
+/* NPC Interaction Modal */
+#npc-modal {
+  display: none;
+  position: fixed;
+  z-index: 1002;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border: 2px solid #666;
+  overflow: hidden;
+  width: 600px;
+  height: 400px;
+  top: 200px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#npc-modal.show {
+  display: block;
+}
+
+#npc-content {
+  background: #333;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#npc-interaction-container {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+#npc-options {
+  width: 200px;
+  background: #444;
+  padding: 15px;
+  border-right: 1px solid #666;
+  overflow-y: auto;
+}
+
+#npc-options h3 {
+  margin-top: 0;
+  color: #fff;
+  font-size: 14px;
+  border-bottom: 1px solid #666;
+  padding-bottom: 10px;
+}
+
+#npc-options-list {
+  margin-top: 15px;
+}
+
+.npc-option {
+  background: #555;
+  color: #fff;
+  border: none;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.3s;
+}
+
+.npc-option:hover {
+  background: #777;
+}
+
+.npc-option.active {
+  background: #4CAF50;
+  color: white;
+}
+
+#npc-dialogue {
+  flex: 1;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#npc-message {
+  background: #222;
+  border: 1px solid #666;
+  border-radius: 4px;
+  padding: 15px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  flex: 1;
+  overflow-y: auto;
+  white-space: pre-wrap;
 }

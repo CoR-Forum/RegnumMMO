@@ -192,6 +192,21 @@ class RegnumMap {
     this.inventoryBtn = document.getElementById('inventory-btn');
     this.currentInventoryTab = 1; // Default to tab 1
     
+    // NPC Interaction Modal
+    this.npcModal = document.getElementById('npc-modal');
+    this.closeNpcModal = document.getElementById('close-npc-modal');
+    this.npcNameTitle = document.getElementById('npc-name-title');
+    this.npcOptionsList = document.getElementById('npc-options-list');
+    this.npcMessage = document.getElementById('npc-message');
+    this.currentNpcId = null;
+    this.currentNpcData = null;
+
+    // Notification Modal
+    this.notificationModal = document.getElementById('notification-modal');
+    this.closeNotificationModal = document.getElementById('close-notification-modal');
+    this.notificationMessage = document.getElementById('notification-message');
+    this.notificationOkBtn = document.getElementById('notification-ok-btn');
+
     // Window dragging functionality
     this.draggedWindow = null;
     this.dragOffset = { x: 0, y: 0 };
@@ -203,6 +218,13 @@ class RegnumMap {
     // Inventory event listeners
     this.setupModalCloseHandlers(this.inventoryModal, this.hideInventoryModal, 'close-inventory-modal');
     if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
+    
+    // NPC modal event listeners
+    this.setupModalCloseHandlers(this.npcModal, this.hideNpcModal, 'close-npc-modal');
+    
+    // Notification modal event listeners
+    this.setupModalCloseHandlers(this.notificationModal, this.hideNotificationModal, 'close-notification-modal');
+    if (this.notificationOkBtn) this.notificationOkBtn.addEventListener('click', () => this.hideNotificationModal());
     
   // Initialize admin panel
   this.initAdminPanel();
@@ -621,6 +643,9 @@ class RegnumMap {
     this.staminaText.textContent = `${character.current_stamina}/${character.max_stamina}`;
     if (this.goldDisplay) this.goldDisplay.textContent = `Gold: ${character.gold || 0}`;
     this.characterInfo.style.display = 'block';
+    
+    // Show inventory button when character is active
+    if (this.inventoryBtn) this.inventoryBtn.style.display = 'block';
   }
 
   updateLocationDisplay(position) {
@@ -644,6 +669,9 @@ class RegnumMap {
 
   hideCharacterInfo() {
     if (this.characterInfo) this.characterInfo.style.display = 'none';
+    
+    // Hide inventory button when character is not active
+    if (this.inventoryBtn) this.inventoryBtn.style.display = 'none';
   }
 
   switchCharacter() {
@@ -740,7 +768,13 @@ class RegnumMap {
     });
 
     this.socket.on('npcMessage', (data) => {
-      alert(`NPC: ${data.message}`);
+      const npc = this.npcs[data.npcId];
+      if (npc) {
+        this.showNpcModal(data.npcId, {
+          ...npc.npc,
+          message: data.message
+        });
+      }
     });
 
     this.socket.on('npcsLeft', (npcIds) => {
@@ -748,7 +782,7 @@ class RegnumMap {
     });
 
     this.socket.on('error', (msg) => {
-      alert('Error: ' + msg);
+      this.showNotification('Error: ' + msg);
     });
 
     this.socket.on('logout', () => {
@@ -780,7 +814,7 @@ class RegnumMap {
     });
 
     this.socket.on('itemPurchased', (data) => {
-      alert(`Purchased ${data.quantity}x ${data.itemName}!`);
+      this.showNotification(`Purchased ${data.quantity}x ${data.itemName}!`);
       // Refresh inventory
       this.socket.emit('getInventory');
     });
@@ -794,7 +828,7 @@ class RegnumMap {
     });
 
     this.socket.on('itemSold', (data) => {
-      alert(`Sold ${data.quantity}x ${data.itemName} for ${data.goldEarned} gold!`);
+      this.showNotification(`Sold ${data.quantity}x ${data.itemName} for ${data.goldEarned} gold!`);
     });
 
     this.socket.on('transactionComplete', (data) => {
@@ -1099,6 +1133,128 @@ class RegnumMap {
     }
   }
 
+  // NPC Modal Methods
+  showNpcModal(npcId, npcData) {
+    if (!this.npcModal || !npcData) return;
+    
+    this.currentNpcId = npcId;
+    this.currentNpcData = npcData;
+    
+    // Set NPC name/title
+    if (this.npcNameTitle) {
+      this.npcNameTitle.textContent = npcData.title || 'NPC';
+    }
+    
+    // Clear previous options
+    if (this.npcOptionsList) {
+      this.npcOptionsList.innerHTML = '';
+    }
+    
+    // Set default message
+    if (this.npcMessage) {
+      this.npcMessage.textContent = npcData.message || 'Hello there! How can I help you?';
+    }
+    
+    // Add options based on NPC features
+    this.addNpcOptions(npcData);
+    
+    // Show modal
+    this.npcModal.style.display = 'block';
+  }
+  
+  hideNpcModal() {
+    if (this.npcModal) {
+      this.npcModal.style.display = 'none';
+    }
+    this.currentNpcId = null;
+    this.currentNpcData = null;
+  }
+  
+  addNpcOptions(npcData) {
+    if (!this.npcOptionsList || !npcData) return;
+    
+    const options = [];
+    
+    // Add options based on features
+    if (npcData.has_shop) {
+      options.push({ text: 'Shop', action: () => this.openNpcShop(npcData) });
+    }
+    
+    if (npcData.has_quests) {
+      options.push({ text: 'Quests', action: () => this.showNpcQuests(npcData) });
+    }
+    
+    if (npcData.has_guard_duties) {
+      options.push({ text: 'Guard Duty', action: () => this.showGuardInfo(npcData) });
+    }
+    
+    if (npcData.has_training) {
+      options.push({ text: 'Training', action: () => this.showTrainingOptions(npcData) });
+    }
+    
+    // Add a "Talk" option if no specific features
+    if (options.length === 0) {
+      options.push({ text: 'Talk', action: () => this.showNpcDialogue(npcData) });
+    }
+    
+    // Create option buttons
+    options.forEach(option => {
+      const button = document.createElement('button');
+      button.className = 'npc-option-btn';
+      button.textContent = option.text;
+      button.addEventListener('click', option.action);
+      this.npcOptionsList.appendChild(button);
+    });
+  }
+  
+  openNpcShop(npcData) {
+    // Hide NPC modal and show shop modal
+    this.hideNpcModal();
+    this.showShopModal(npcData.shop_inventory || []);
+  }
+  
+  showNpcQuests(npcData) {
+    if (this.npcMessage) {
+      this.npcMessage.textContent = 'I have some quests for you. Which one interests you?';
+    }
+    // TODO: Implement quest system
+    this.showNotification('Quest system coming soon!');
+  }
+  
+  showGuardInfo(npcData) {
+    if (this.npcMessage) {
+      this.npcMessage.textContent = 'I am here to protect this area. Everything is peaceful for now.';
+    }
+  }
+  
+  showTrainingOptions(npcData) {
+    if (this.npcMessage) {
+      this.npcMessage.textContent = 'I can help you improve your skills. What would you like to train?';
+    }
+    // TODO: Implement training system
+    this.showNotification('Training system coming soon!');
+  }
+  
+  showNpcDialogue(npcData) {
+    if (this.npcMessage) {
+      this.npcMessage.textContent = npcData.message || 'Hello! Nice to meet you.';
+    }
+  }
+
+  // Notification Modal Methods
+  showNotification(message) {
+    if (!this.notificationModal || !this.notificationMessage) return;
+    
+    this.notificationMessage.textContent = message;
+    this.notificationModal.style.display = 'block';
+  }
+  
+  hideNotificationModal() {
+    if (this.notificationModal) {
+      this.notificationModal.style.display = 'none';
+    }
+  }
+
   displayInventoryItems(inventory) {
     if (!this.inventoryItems) return;
     
@@ -1331,7 +1487,7 @@ class RegnumMap {
 
   confirmTransactionAction() {
     if (this.transactionList.length === 0) {
-      alert('No items in transaction');
+      this.showNotification('No items in transaction');
       return;
     }
     
@@ -1340,7 +1496,7 @@ class RegnumMap {
     );
     
     if (tabItems.length === 0) {
-      alert('No items in current transaction tab');
+      this.showNotification('No items in current transaction tab');
       return;
     }
     
@@ -1446,7 +1602,7 @@ class RegnumMap {
   
 
   setupWindowDragging() {
-    const windows = [this.shopModal, this.inventoryModal, this.adminModal];
+    const windows = [this.shopModal, this.inventoryModal, this.adminModal, this.npcModal, this.notificationModal];
     
     windows.forEach(window => {
       if (!window) return;
@@ -1919,7 +2075,9 @@ class RegnumMap {
     // Populate form with shop item data or clear for new shop item
     if (shopItem) {
       form['shop-item-id'].value = shopItem.id;
-      form['shop-item-item-id'].value = shopItem.item_id;
+      form['shop-item-npc'].value = shopItem.npc_id || shopId;
+      form['shop-item-item'].value = shopItem.item_id;
+      form['shop-item-quantity'].value = shopItem.quantity || 1;
       form['shop-item-price'].value = shopItem.price;
       form['shop-id'].value = shopId;
       document.getElementById('shop-item-edit-title').textContent = 'Edit Shop Item';
@@ -2109,7 +2267,7 @@ class RegnumMap {
 
     const shopItemData = {
       id: form['shop-item-id'].value || null,
-      item_id: parseInt(form['shop-item-item-id'].value),
+      item_id: parseInt(form['shop-item-item'].value),
       price: parseInt(form['shop-item-price'].value),
       shop_id: parseInt(form['shop-id'].value)
     };

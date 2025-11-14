@@ -222,8 +222,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Constants
 const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
-const MAP_BOUNDS = { minX: 0, maxX: 6157, minY: 0, maxY: 6192 };
-const DEFAULT_POS = { x: 3078, y: 3096 };
+const MAP_BOUNDS = { minX: 0, maxX: 6144, minY: 0, maxY: 6144 };
+const DEFAULT_POS = { x: 3072, y: 3072 };
 const VIEW_DISTANCE = 1000; // NPCs visible within 1000 units
 const INITIAL_ZOOM = 9;
 
@@ -334,8 +334,8 @@ async function initDatabase() {
     `CREATE TABLE IF NOT EXISTS positions (
       id INT AUTO_INCREMENT PRIMARY KEY,
       character_id INT NOT NULL UNIQUE,
-      x FLOAT DEFAULT 3078,
-      y FLOAT DEFAULT 3096,
+      x FLOAT DEFAULT 3072,
+      y FLOAT DEFAULT 3072,
       date_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
     ) ENGINE=InnoDB`,

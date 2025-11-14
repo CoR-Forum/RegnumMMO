@@ -23,8 +23,7 @@ ENV C_INCLUDE_PATH=/usr/include/gdal
 # Set working directory
 WORKDIR /app
 
-# Copy the source files
-COPY source-map.png .
+# Copy the generation scripts (source-map.png will be mounted at runtime)
 COPY generate-tiles.sh .
 COPY gdal2tiles.py .
 

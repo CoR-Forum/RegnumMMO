@@ -6,8 +6,8 @@
  */
 class RegnumMap {
   static MAP_SETTINGS = Object.freeze({
-    gameDimensions: [6157, 6192],
-    imageDimensions: [6157, 6192], // Match game dimensions for 1:1 mapping
+    gameDimensions: [6144, 6144],
+    imageDimensions: [18432, 18432], // 3x resolution for better zoom detail
     initialZoom: 7,
     maxZoom: 9,
     minZoom: 1,
@@ -15,7 +15,7 @@ class RegnumMap {
     normalUserMaxZoom: 9,
     normalUserMinZoom: 7,
     normalUserInitialZoom: 9, // Most zoomed in as default
-    tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
+    tilePath: 'https://maps.cor-forum.de/gamemap-tiles/{z}/{x}/{y}.png',
     attribution: `
       Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
     `.trim()
@@ -74,10 +74,10 @@ class RegnumMap {
 
     this.rasterCoords = new L.RasterCoords(this.map, imageDimensions);
     this.map.setMaxBounds(null); // Allow free panning beyond map bounds
-    
-    // 1:1 mapping - no scaling needed
-    this.scaleX = 1;
-    this.scaleY = 1;
+
+    // Scale factor: imageDimensions / gameDimensions = 18432 / 6144 = 3.0
+    this.scaleX = imageDimensions[0] / gameDimensions[0];
+    this.scaleY = imageDimensions[1] / gameDimensions[1];
     
     const centerCoords = this.toLatLng([gameDimensions[0] / 2, gameDimensions[1] / 2]);
     this.map.setView(centerCoords, mapInitialZoom);
@@ -122,7 +122,7 @@ class RegnumMap {
     marker5.bindPopup("2451.1330566406, 3987.1953125");
 
     const marker6 = L.marker(this.toLatLng([6126, 6190])).addTo(this.map);
-    marker6.bindPopup("6157, 6192");
+    marker6.bindPopup("6144, 6144");
 
     const marker7 = L.marker(this.toLatLng([8862, 8879])).addTo(this.map);
     marker7.bindPopup("8862, 8879");
@@ -1034,8 +1034,8 @@ class RegnumMap {
 
   moveToPosition(x, y) {
     // Clamp to map bounds
-    x = Math.max(0, Math.min(6157, x));
-    y = Math.max(0, Math.min(6192, y));
+    x = Math.max(0, Math.min(6144, x));
+    y = Math.max(0, Math.min(6144, y));
     this.socket.emit('move', { x, y });
     // Don't update local position - wait for server confirmation
   }

@@ -2,66 +2,100 @@
 
 This guide explains how to use Docker to generate map tiles for the Regnum Online Interactive Map project, eliminating the need to install GDAL and Python dependencies on your local machine.
 
+## 🗺️ Map Coordinate System
+
+The Regnum Online map uses a specific coordinate system based on the original game design:
+
+### Coordinate Specifications
+- **Map dimensions:** 6144 × 6144 game units
+- **Chunk system:** 48 × 48 chunks, each 128 × 128 units (48 × 128 = 6144)
+- **Image dimensions:** 18432 × 18432 pixels (3× resolution for better zoom detail)
+- **Scale factor:** 3.0 (image pixels / game coordinates)
+
+### Original Map Source
+- **Original tiles:** 18 × 18 grid of 1024×1024 tiles (from original game)
+- **Total original resolution:** 18,432 × 18,432 pixels
+- **Missing tiles:** 2 tiles (76009.jpg, 76027.jpg) - replaced with black placeholders
+- **Assembly script:** `assemble-original-map.py` reconstructs the full map from tiles
+
+### Coordinate Transformation
+- **Game coordinates → Image pixels:** Multiply by 3.0 (e.g., game position 1000 = image pixel 3000)
+- **Image pixels → Game coordinates:** Divide by 3.0
+- **NPC/Player positions:** Stored in game coordinates (0-6144 range)
+- **Display:** Client transforms game coordinates to image coordinates automatically
+
 ## 🐳 Quick Start
 
 ### Prerequisites
 - Docker installed on your system
-- Docker Compose (included with Docker Desktop)
-- Source map image named `source-map.png` in the project root
-- ImageMagick (for image resizing)
+- Source map image or original tiles
+- ImageMagick (for image processing)
 
-### Image Preparation
+### Map Assembly from Original Tiles
 
-Before generating tiles, you may need to resize your source map to the correct dimensions:
+If you have the original 18×18 grid of tiles:
+
+1. **Assemble the original high-resolution map:**
+   ```bash
+   python3 assemble-original-map.py
+   ```
+
+   This creates `original-map-18432x18432.png` (230 MB) from 322 tiles in the `original-map/` directory.
+
+2. **Create symlink for tile generation:**
+   ```bash
+   ln -s original-map-18432x18432.png source-map.png
+   ```
+
+### Image Preparation from Other Sources
+
+If you need to resize an existing map:
 
 1. **Install ImageMagick:**
    ```bash
    brew install imagemagick
    ```
 
-2. **Resize map to standard resolution (6157x6192):**
+2. **Resize to correct dimensions (18432×18432):**
    ```bash
-   magick map-2025.png -resize 6157x6192 map-2025-6157x6192.png
+   magick your-map.png -resize 18432x18432 -filter Lanczos source-map.png
    ```
 
-3. **Or resize to high resolution (12314x12384):**
-   ```bash
-   magick map-2025.png -resize 12314x12384 map-2025-2x.png
-   ```
-
-   > ⚠️ **When to use high quality scaling:**
-   > 
-   > If you care about preserving details (e.g., maps, designs, or print-quality graphics), use ImageMagick with the Lanczos filter instead of basic resizing.
-   > 
-   > The `-filter Lanczos` option gives crisp edges and better texture preservation, which is essential for map quality.
+   > ⚠️ **Important:** Always use Lanczos filter for map scaling to preserve details and avoid artifacts.
 
 ### Simple Usage
 
-1. **Generate tiles with one command:**
+1. **Build Docker image:**
    ```bash
-   ./docker-run.sh run
+   docker build -t regnum-tile-generator .
    ```
 
-2. **That's it!** The script will:
-   - Build the Docker image (if needed)
-   - Run tile generation inside the container
-   - Save generated tiles to the `./tiles` directory
+2. **Generate tiles:**
+   ```bash
+   docker run --rm \
+     -v "$(pwd)/source-map.png:/app/source-map.png:ro" \
+     -v "$(pwd)/tiles:/app/tiles" \
+     regnum-tile-generator
+   ```
 
-## 📋 Available Commands
+3. **That's it!** The script will:
+   - Process the 18432×18432 source map
+   - Generate zoom levels 0-9 (10 total levels)
+   - Save ~110,000+ tiles to the `./tiles` directory
 
-The `docker-run.sh` script provides several convenient commands:
+## 📋 Map Files Overview
 
-```bash
-./docker-run.sh build     # Build the Docker image
-./docker-run.sh run       # Generate tiles (builds if needed)
-./docker-run.sh shell     # Open interactive shell in container
-./docker-run.sh clean     # Remove Docker image and tiles
-./docker-run.sh help      # Show help message
-```
+### Source Files
+- `original-map/` - Directory with 322 original 1024×1024 tiles (75879.jpg - 76202.jpg)
+- `assemble-original-map.py` - Python script to reconstruct full map from tiles
+- `original-map-18432x18432.png` - Full assembled map (230 MB)
+- `source-map.png` - Symlink pointing to the active source map
+
+### Generated Files
+- `tiles/` - Directory containing all generated Leaflet tiles
+- `tiles/{z}/{x}/{y}.png` - Individual tile files organized by zoom level
 
 ## 🛠️ Manual Docker Commands
-
-If you prefer using Docker commands directly:
 
 ### Build the image:
 ```bash
@@ -70,12 +104,17 @@ docker build -t regnum-tile-generator .
 
 ### Run tile generation:
 ```bash
-docker-compose up
+docker run --rm \
+  -v "$(pwd)/source-map.png:/app/source-map.png:ro" \
+  -v "$(pwd)/tiles:/app/tiles" \
+  regnum-tile-generator
 ```
 
 ### Interactive shell for debugging:
 ```bash
-docker-compose run --rm tile-generator bash
+docker run --rm -it \
+  -v "$(pwd):/app" \
+  regnum-tile-generator bash
 ```
 
 ## 📁 File Structure
@@ -83,42 +122,66 @@ docker-compose run --rm tile-generator bash
 The Docker setup includes these files:
 
 - `Dockerfile` - Docker image definition with GDAL and Python
-- `docker-compose.yml` - Docker Compose configuration
-- `docker-run.sh` - Convenient wrapper script
+- `generate-tiles.sh` - Main tile generation script
+- `gdal2tiles.py` - GDAL tool for tile generation (Leaflet-optimized)
+- `assemble-original-map.py` - Script to reconstruct map from original tiles
 - `.dockerignore` - Optimizes Docker build process
 
 ## 🔧 Technical Details
 
 ### Docker Environment
 - **Base Image:** Ubuntu 22.04
-- **Python:** Python 3 with GDAL bindings
-- **GDAL:** Latest version with full raster processing support
-- **Memory:** Optimized for large image processing
+- **Python:** Python 3 with GDAL bindings and Pillow (PIL)
+- **GDAL:** Full raster processing support with Leaflet optimization
+- **Memory:** Optimized for large image processing (18432×18432)
 
 ### Volume Mounts
 - `./source-map.png` → `/app/source-map.png` (read-only)
 - `./tiles` → `/app/tiles` (read-write for output)
-- Scripts are mounted as read-only volumes
+- Scripts are copied during build (not mounted)
 
 ### Environment Variables
 - `GDAL_ALLOW_LARGE_LIBJPEG_MEM_ALLOC=1` - Enable large JPEG processing
-- `GDAL_CACHEMAX=512` - Set GDAL memory cache
+- `GDAL_CACHEMAX=512` - Set GDAL memory cache to 512 MB
 
-## 🚀 Performance Optimization
+### Tile Generation Settings
+- **Zoom levels:** 0-9 (10 total levels)
+- **Tile size:** 256×256 pixels (Leaflet standard)
+- **Profile:** Raster (simple image tiles, not geographic projection)
+- **Format:** PNG with optimization
 
-The Docker setup is optimized for:
-- **Fast builds** - Uses layer caching and .dockerignore
-- **Memory efficiency** - Proper GDAL memory settings
-- **Clean separation** - Host files remain unchanged
-- **Easy debugging** - Interactive shell access
+## 🚀 Performance Details
+
+### Map Processing
+- **Input:** 18432×18432 PNG (230 MB)
+- **Output:** ~110,604 tile files across 10 zoom levels
+- **Generation time:** ~15-20 minutes (depending on system)
+- **Disk space:** ~500 MB for all tiles
+
+### Zoom Level Breakdown
+- **Zoom 0:** 1 tile (full map view)
+- **Zoom 1:** 4 tiles (2×2 grid)
+- **Zoom 2:** 16 tiles (4×4 grid)
+- **...continues exponentially...**
+- **Zoom 9:** 262,144 theoretical tiles (only visible areas generated)
+
+### RasterCoords Calculation
+For the 18432×18432 image with 256px tiles:
+```
+zoom = ceil(log(18432 / 256) / log(2))
+     = ceil(log(72) / log(2))
+     = ceil(6.169)
+     = 7
+```
+The RasterCoords plugin uses zoom level 7 for coordinate transformations.
 
 ## 🏗️ Generated Output
 
 After successful tile generation:
 - Tiles are saved to `./tiles` directory
-- Zoom levels 0-9 are generated (10 total levels)
-- Significantly more tile files are created for detailed zooming
-- `tilemapresource.xml` contains tile metadata
+- Directory structure: `tiles/{z}/{x}/{y}.png`
+- Zoom levels 0-9 are generated
+- Total tile count displayed in generation output
 
 ## 🔍 Troubleshooting
 
@@ -128,7 +191,10 @@ After successful tile generation:
    ```
    Error: source-map.png not found!
    ```
-   **Solution:** Ensure `source-map.png` exists in the project root
+   **Solution:** Create symlink or copy your source map to `source-map.png`
+   ```bash
+   ln -s original-map-18432x18432.png source-map.png
+   ```
 
 2. **Docker not running:**
    ```
@@ -136,48 +202,76 @@ After successful tile generation:
    ```
    **Solution:** Start Docker Desktop or Docker service
 
-3. **Permission issues:**
-   ```bash
-   chmod +x docker-run.sh  # Make script executable
-   ```
+3. **Coordinate misalignment (NPCs/players in wrong positions):**
+   - Verify `imageDimensions: [18432, 18432]` in app.js
+   - Verify `scaleX = 3.0` and `scaleY = 3.0` are calculated correctly
+   - Check RasterCoords is using `this.zoomLevel()` not hardcoded value
 
 4. **Memory issues with large images:**
-   - The Docker container is configured for large image processing
-   - Increase Docker Desktop memory limit if needed
+   - The Docker container is configured for 18432×18432 processing
+   - Increase Docker Desktop memory limit to 4GB+ if needed
+
+5. **Wrong map dimensions:**
+   - Original game: 6144×6144 game coordinates (48 chunks × 128 units)
+   - Image should be: 18432×18432 pixels (3× scale factor)
+   - NOT 6157×6192 (this was incorrect scaling from previous version)
 
 ### Debug Mode:
 ```bash
-./docker-run.sh shell  # Opens interactive container shell
+docker run --rm -it -v "$(pwd):/app" regnum-tile-generator bash
 ```
+
+## 📊 Coordinate System Validation
+
+To verify your coordinate system is correct:
+
+1. **Check NPC position display:**
+   - NPC "Irehok" is at game coordinates: `x: 1156, y: 4592`
+   - When standing at that location, player should see: `Location: 1156, 4592`
+   - NPC marker should appear at the player's position
+
+2. **Verify scale factors:**
+   ```javascript
+   // In app.js
+   gameDimensions: [6144, 6144]      // Game coordinates
+   imageDimensions: [18432, 18432]   // Image pixels (3× scale)
+   scaleX: 18432 / 6144 = 3.0        // Transformation factor
+   ```
+
+3. **Check RasterCoords:**
+   ```javascript
+   // In rastercoords.js - should use calculated zoom, not hardcoded
+   this.zoom = this.zoomLevel()  // ✓ Correct
+   this.zoom = 5.420             // ✗ Wrong - causes offset issues
+   ```
 
 ## 🧹 Cleanup
 
-Remove all Docker resources and generated tiles:
+Remove generated tiles:
 ```bash
-./docker-run.sh clean
+rm -rf tiles/
 ```
 
-This will:
-- Stop and remove containers
-- Remove the Docker image
-- Optionally remove generated tiles (with confirmation)
+Remove Docker image:
+```bash
+docker rmi regnum-tile-generator
+```
 
-## 📊 Performance Comparison
+## 📖 Key Lessons Learned
 
-| Method | Setup Time | Reliability | Platform Support |
-|--------|------------|-------------|------------------|
-| Native | 10-30 min | Medium | Linux/macOS |
-| Docker | 2-5 min | High | All platforms |
+### Critical Fixes Applied
+1. **Fixed hardcoded zoom:** Changed from `5.420` to calculated `this.zoomLevel()`
+2. **Correct map dimensions:** Using 6144×6144 game coords, 18432×18432 image pixels
+3. **Proper scale factors:** Automatically calculated as 3.0 from dimensions
+4. **Tile generation:** Generates 0-9 zoom levels from 18432×18432 source
+5. **Original tiles preserved:** Assembled from 322 original 1024×1024 tiles
 
-Docker provides consistent results across all platforms and eliminates dependency conflicts.
-
-## 🤝 Contributing
-
-When contributing tile generation improvements:
-1. Test changes with `./docker-run.sh shell`
-2. Update this documentation if needed
-3. Ensure Docker builds successfully on clean systems
+### Coordinate System Rules
+- **Server:** Always uses 6144×6144 game coordinates
+- **Client:** Transforms to 18432×18432 for display (multiply by 3.0)
+- **NPCs/Players:** Positions stored in 6144×6144 coordinate space
+- **Tiles:** Generated from 18432×18432 for maximum detail
 
 ---
 
-The Docker setup ensures consistent, reliable tile generation across all development environments while keeping your local system clean.
+The Docker setup ensures consistent, reliable tile generation with proper coordinate system alignment for the Regnum Online map.

@@ -225,7 +225,7 @@ const SPRINT_MULTIPLIER = 20;
 const MAP_BOUNDS = { minX: 0, maxX: 6157, minY: 0, maxY: 6192 };
 const DEFAULT_POS = { x: 3078, y: 3096 };
 const VIEW_DISTANCE = 1000; // NPCs visible within 1000 units
-const INITIAL_ZOOM = 7;
+const INITIAL_ZOOM = 9;
 
 // NPC storage
 const npcs = {};

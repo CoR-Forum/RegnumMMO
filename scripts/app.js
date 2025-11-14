@@ -11,6 +11,10 @@ class RegnumMap {
     initialZoom: 7,
     maxZoom: 9,
     minZoom: 1,
+    // Settings for non-admin users (3 zoom levels)
+    normalUserMaxZoom: 9,
+    normalUserMinZoom: 7,
+    normalUserInitialZoom: 9, // Most zoomed in as default
     tilePath: 'https://maps.cor-forum.de/tiles/{z}/{x}/{y}.png',
     attribution: `
       Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
@@ -45,12 +49,27 @@ class RegnumMap {
   }
 
   createMap() {
-    const { gameDimensions, imageDimensions, initialZoom, maxZoom, minZoom } = RegnumMap.MAP_SETTINGS;
+    const { gameDimensions, imageDimensions, initialZoom, maxZoom, minZoom, normalUserMaxZoom, normalUserMinZoom, normalUserInitialZoom } = RegnumMap.MAP_SETTINGS;
+    
+    // Check if user is admin
+    const user = JSON.parse(localStorage.getItem('user'));
+    const isAdmin = user && user.isAdmin;
+    
+    // Set zoom limits based on admin status
+    const mapMinZoom = isAdmin ? minZoom : normalUserMinZoom;
+    const mapMaxZoom = isAdmin ? maxZoom : normalUserMaxZoom;
+    // Default to normalUserInitialZoom (9) for all users initially
+    const mapInitialZoom = normalUserInitialZoom;
     
     this.map = L.map(this.containerId, {
       crs: L.CRS.Simple,
-      minZoom,
-      maxZoom
+      minZoom: mapMinZoom,
+      maxZoom: mapMaxZoom,
+      dragging: isAdmin, // Only allow dragging for admin users
+      scrollWheelZoom: true, // Allow scroll wheel zoom for all users
+      doubleClickZoom: true, // Allow double-click zoom for all users
+      boxZoom: isAdmin, // Only allow box zoom for admin users
+      touchZoom: true // Allow touch zoom for all users
     });
 
     this.rasterCoords = new L.RasterCoords(this.map, imageDimensions);
@@ -61,7 +80,7 @@ class RegnumMap {
     this.scaleY = 1;
     
     const centerCoords = this.toLatLng([gameDimensions[0] / 2, gameDimensions[1] / 2]);
-    this.map.setView(centerCoords, initialZoom);
+    this.map.setView(centerCoords, mapInitialZoom);
   }
 
   setupTileLayer() {
@@ -354,6 +373,8 @@ class RegnumMap {
             // Store admin status
             user.isAdmin = data.isAdmin;
             localStorage.setItem('user', JSON.stringify(user));
+            // Update map dragging based on admin status
+            this.checkAdminStatus();
             this.checkExistingCharacters();
           } else {
             // Session invalid, clear local storage
@@ -398,11 +419,24 @@ class RegnumMap {
   }
 
   logout() {
+    const { normalUserMaxZoom, normalUserMinZoom } = RegnumMap.MAP_SETTINGS;
+    
     localStorage.removeItem('user');
     localStorage.removeItem('character');
     this.hideCharacterInfo();
     this.hideCharacterModal();
     this.updateLoginBtn(false);
+    // Set to normal user restrictions for logged out users
+    if (this.map) {
+      if (this.map.dragging) this.map.dragging.disable();
+      if (this.map.scrollWheelZoom) this.map.scrollWheelZoom.enable();
+      if (this.map.doubleClickZoom) this.map.doubleClickZoom.enable();
+      if (this.map.boxZoom) this.map.boxZoom.disable();
+      if (this.map.touchZoom) this.map.touchZoom.enable();
+      // Set restricted zoom limits
+      this.map.setMinZoom(normalUserMinZoom);
+      this.map.setMaxZoom(normalUserMaxZoom);
+    }
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -473,6 +507,8 @@ class RegnumMap {
         // Store user data including admin status
         localStorage.setItem('user', JSON.stringify(data));
         this.updateLoginBtn(true, data.username);
+        // Update map dragging based on admin status
+        this.checkAdminStatus();
         setTimeout(async () => {
           this.hideLoginModal();
           await this.checkExistingCharacters();
@@ -729,7 +765,11 @@ class RegnumMap {
       if (this.manaRegen) this.manaRegen.textContent = `(+${data.manaRegen}/s)`;
       if (this.staminaRegen) this.staminaRegen.textContent = `(+${data.staminaRegen}/s)`;
       this.addPlayer(this.socket.id, data.character, data.position, true);
-      this.map.setView(this.toLatLng([data.position.x, data.position.y]), data.zoom || this.map.getZoom());
+      
+      // Use server-provided zoom level or fallback to current map zoom
+      const zoomLevel = data.zoom || this.map.getZoom();
+      
+      this.map.setView(this.toLatLng([data.position.x, data.position.y]), zoomLevel);
       // Update location display with server position
       this.updateLocationDisplay(data.position);
       this.updateZoomDisplay(this.map.getZoom());
@@ -1763,10 +1803,35 @@ class RegnumMap {
 
   checkAdminStatus() {
     const user = JSON.parse(localStorage.getItem('user'));
+    const { maxZoom, minZoom, normalUserMaxZoom, normalUserMinZoom } = RegnumMap.MAP_SETTINGS;
+    
     if (user && user.isAdmin) {
       if (this.adminBtn) this.adminBtn.style.display = 'block';
+      // Enable map dragging and full zoom range for admins
+      if (this.map) {
+        if (this.map.dragging) this.map.dragging.enable();
+        if (this.map.scrollWheelZoom) this.map.scrollWheelZoom.enable();
+        if (this.map.doubleClickZoom) this.map.doubleClickZoom.enable();
+        if (this.map.boxZoom) this.map.boxZoom.enable();
+        if (this.map.touchZoom) this.map.touchZoom.enable();
+        // Set admin zoom limits
+        this.map.setMinZoom(minZoom);
+        this.map.setMaxZoom(maxZoom);
+      }
     } else {
       if (this.adminBtn) this.adminBtn.style.display = 'none';
+      // Disable map dragging but allow limited zooming for non-admins
+      if (this.map) {
+        if (this.map.dragging) this.map.dragging.disable();
+        if (this.map.scrollWheelZoom) this.map.scrollWheelZoom.enable();
+        if (this.map.doubleClickZoom) this.map.doubleClickZoom.enable();
+        if (this.map.boxZoom) this.map.boxZoom.disable();
+        if (this.map.touchZoom) this.map.touchZoom.enable();
+        // Set restricted zoom limits for normal users (3 levels: 7, 8, 9)
+        this.map.setMinZoom(normalUserMinZoom);
+        this.map.setMaxZoom(normalUserMaxZoom);
+        // Zoom level will be controlled by server
+      }
     }
   }
 

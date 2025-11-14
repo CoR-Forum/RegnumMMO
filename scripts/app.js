@@ -1209,8 +1209,9 @@ class RegnumMap {
   
   openNpcShop(npcData) {
     // Hide NPC modal and show shop modal
+    const npcId = this.currentNpcId; // Store before hiding modal
     this.hideNpcModal();
-    this.showShopModal(npcData.shop_inventory || []);
+    this.showShopModal(npcId, npcData.name);
   }
   
   showNpcQuests(npcData) {

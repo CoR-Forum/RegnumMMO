@@ -223,7 +223,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const BASE_SPEED = 0.3;
 const SPRINT_MULTIPLIER = 20;
 const MAP_BOUNDS = { minX: 0, maxX: 6144, minY: 0, maxY: 6144 };
-const DEFAULT_POS = { x: 3072, y: 3072 };
+const DEFAULT_POS = { x: 238, y: 5370 };
+const REALM_START_POSITIONS = {
+  'Syrtis': { x: 238, y: 5370 },
+  'Ignis': { x: 4992, y: 582 },
+  'Alsius': { x: 1502, y: 332 }
+};
 const VIEW_DISTANCE = 1000; // NPCs visible within 1000 units
 const INITIAL_ZOOM = 9;
 
@@ -586,8 +591,9 @@ app.post('/api/characters', (req, res) => {
 
     db.query('INSERT INTO characters (user_id, name, realm, race, class, level, conc, \`const\`, dex, \`int\`, str, max_health, current_health, max_mana, current_mana, max_stamina, current_stamina, gold) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [userID, name, realm, race, charClass, attrs.conc, attrs.const, attrs.dex, attrs.int, attrs.str, maxHealth, maxHealth, maxMana, maxMana, maxStamina, maxStamina, 100], (err, result) => {
       if (err) return sendError(res, err.message);
-      // Insert default position
-      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?)', [result.insertId, DEFAULT_POS.x, DEFAULT_POS.y], (err2) => {
+      // Insert realm-specific starting position
+      const startPos = REALM_START_POSITIONS[realm] || DEFAULT_POS;
+      db.query('INSERT INTO positions (character_id, x, y) VALUES (?, ?, ?)', [result.insertId, startPos.x, startPos.y], (err2) => {
         if (err2) console.error('Error inserting position:', err2);
         res.json({ success: true, id: result.insertId });
       });
@@ -669,7 +675,8 @@ io.on('connection', (socket) => {
       }
       const character = results[0];
       const [posResults] = await db.promise().query('SELECT * FROM positions WHERE character_id = ?', [characterId]);
-      let position = posResults[0] || DEFAULT_POS;
+      const realmStartPos = REALM_START_POSITIONS[character.realm] || DEFAULT_POS;
+      let position = posResults[0] || realmStartPos;
 
       // Check if Redis has more recent data
       const redisData = await redisClient.get(`player:${characterId}`);

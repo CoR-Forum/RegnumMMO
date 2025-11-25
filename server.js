@@ -92,26 +92,71 @@ async function importShopItems() {
   }
 }
 
-// Function to import example NPCs to database
-async function importExampleNPCs() {
+// Function to sync NPCs from gameData to database
+async function syncNPCsFromGameData() {
   try {
-    // Check if NPCs already exist
-    const [existing] = await db.promise().query('SELECT COUNT(*) as count FROM npcs');
-    if (existing[0].count > 0) {
-      console.log('NPCs already exist in database, skipping import');
-      return;
-    }
-
-    console.log('Importing example NPCs to database...');
+    console.log('Syncing NPCs from gameData to database...');
+    
+    // Get existing NPCs from database
+    const [existingNPCs] = await db.promise().query('SELECT name, id FROM npcs');
+    const existingNPCMap = new Map(existingNPCs.map(npc => [npc.name, npc.id]));
+    
+    let addedCount = 0;
+    let updatedCount = 0;
+    
     for (const npc of gameData.npcs) {
-      await db.promise().query(
-        'INSERT INTO npcs (name, realm, level, x, y, title, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [npc.name, npc.realm, npc.level, npc.position.x, npc.position.y, npc.title || 'Citizen', npc.roaming_type, npc.roaming_radius || 0, npc.roaming_speed || 0, npc.has_shop || false, npc.has_quests || false, npc.has_guard_duties || false, npc.has_healing || false, npc.has_blacksmith || false]
-      );
+      const existingId = existingNPCMap.get(npc.name);
+      
+      if (existingId) {
+        // Update existing NPC
+        await db.promise().query(
+          'UPDATE npcs SET realm = ?, level = ?, x = ?, y = ?, title = ?, roaming_type = ?, roaming_radius = ?, roaming_speed = ?, has_shop = ?, has_quests = ?, has_guard_duties = ?, has_healing = ?, has_blacksmith = ? WHERE id = ?',
+          [
+            npc.realm,
+            npc.level,
+            npc.position.x,
+            npc.position.y,
+            npc.title || 'Citizen',
+            npc.roaming_type || 'static',
+            npc.roaming_radius || 0,
+            npc.roaming_speed || 0,
+            npc.has_shop || false,
+            npc.has_quests || false,
+            npc.has_guard_duties || false,
+            npc.has_healing || false,
+            npc.has_blacksmith || false,
+            existingId
+          ]
+        );
+        updatedCount++;
+      } else {
+        // Insert new NPC
+        await db.promise().query(
+          'INSERT INTO npcs (name, realm, level, x, y, title, roaming_type, roaming_radius, roaming_speed, has_shop, has_quests, has_guard_duties, has_healing, has_blacksmith) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            npc.name,
+            npc.realm,
+            npc.level,
+            npc.position.x,
+            npc.position.y,
+            npc.title || 'Citizen',
+            npc.roaming_type || 'static',
+            npc.roaming_radius || 0,
+            npc.roaming_speed || 0,
+            npc.has_shop || false,
+            npc.has_quests || false,
+            npc.has_guard_duties || false,
+            npc.has_healing || false,
+            npc.has_blacksmith || false
+          ]
+        );
+        addedCount++;
+      }
     }
-    console.log('Example NPCs imported successfully');
+    
+    console.log(`NPC sync complete: ${addedCount} added, ${updatedCount} updated`);
   } catch (error) {
-    console.error('Error importing example NPCs:', error);
+    console.error('Error syncing NPCs from gameData:', error);
   }
 }
 
@@ -400,7 +445,7 @@ async function waitForDatabase() {
     await initDatabase();
     // Initialize game data
     await importExampleItems();
-    await importExampleNPCs();
+    await syncNPCsFromGameData();  // Sync NPCs from gameData (add missing, update existing)
     await importShopItems();
     await loadNPCsFromDatabase();
     loadMarkers();

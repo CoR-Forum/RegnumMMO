@@ -94,7 +94,7 @@ const regionData = {
   ],
   areas: [
     {
-      name: 'Syrtis Capital',
+      name: 'Ilreah Village',
       realm: 'Syrtis',
       type: 'city',
       points: [

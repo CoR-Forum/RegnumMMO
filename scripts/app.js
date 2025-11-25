@@ -252,6 +252,19 @@ class RegnumMap {
     // Initialize ItemRenderer
     this.itemRenderer = new ItemRenderer();
 
+    // Initialize DragDropManager
+    this.dragDropManager = new DragDropManager();
+
+    // Initialize TransactionManager (will be configured later)
+    this.transactionManager = new TransactionManager(
+      null, // Socket will be set later
+      this.itemRenderer,
+      (msg) => this.showNotification(msg)
+    );
+
+    // Initialize PositionManager (will be configured after map is ready)
+    this.positionManager = new PositionManager(this.map, this.toLatLng);
+
     // Login elements
     this.loginBtn = document.getElementById('login-btn');
     this.loginModal = document.getElementById('login-modal');
@@ -336,8 +349,9 @@ class RegnumMap {
     this.transactionItems = document.getElementById('transaction-items');
     this.confirmTransaction = document.getElementById('confirm-transaction');
     this.clearTransaction = document.getElementById('clear-transaction');
-    this.currentTransactionTab = 'buy';
-    this.transactionList = []; // Array to hold items for transaction
+
+    // Initialize TransactionManager with UI elements
+    this.transactionManager.initialize(this.transactionItems, this.transactionTabs);
 
     this.modalManager.register('shop', {
       modalId: 'shop-modal',
@@ -345,13 +359,13 @@ class RegnumMap {
       playSound: false,
       onHide: () => {
         this.currentShopNpcId = null;
-        this.clearTransactionList();
+        this.transactionManager.clearAll();
         this.socket.emit('getInventory');
       }
     });
 
-    if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.confirmTransactionAction());
-    if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.clearTransactionList());
+    if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.transactionManager.confirmTransaction());
+    if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.transactionManager.clearAll());
 
     // Inventory elements
     this.inventoryModal = document.getElementById('inventory-modal');
@@ -437,14 +451,7 @@ class RegnumMap {
     }
     
     // Transaction tab switching
-    if (this.transactionTabs) {
-      this.transactionTabs.addEventListener('click', (e) => {
-        if (e.target.classList.contains('transaction-tab-button')) {
-          const tabType = e.target.dataset.tab;
-          this.switchTransactionTab(tabType);
-        }
-      });
-    }
+    // Transaction tabs are now handled by TransactionManager.initialize()
     
     // Add drag and drop for transaction area
     if (this.transactionItems) {
@@ -461,7 +468,7 @@ class RegnumMap {
         e.preventDefault();
         this.transactionItems.classList.remove('drag-over');
         const itemData = JSON.parse(e.dataTransfer.getData('text/plain'));
-        this.addItemToTransaction(itemData, e.target === this.transactionItems ? 'unknown' : 'shop');
+        this.transactionManager.addItem(itemData, e.target === this.transactionItems ? 'unknown' : 'shop');
       });
     }
     
@@ -875,6 +882,9 @@ class RegnumMap {
     }
     this.socket = io({ auth: { token: user.token } });
 
+    // Update transactionManager with socket instance
+    this.transactionManager.socket = this.socket;
+
     this.socket.on('connect', () => {
       console.log('Connected to server');
       this.socket.emit('join', { characterId });
@@ -1014,7 +1024,7 @@ class RegnumMap {
 
     this.socket.on('transactionComplete', (data) => {
       // Clear the transaction list after successful transaction
-      this.clearTransactionList();
+      this.transactionManager.clearAll();
       
       // Play sound and show orange text
       this.playSound(data.type);
@@ -1168,15 +1178,27 @@ class RegnumMap {
     const healthBarMarker = this.createHealthBarMarker(latLng, npc, iconSize, iconAnchor);
     healthBarMarker.remove(); // Remove from map initially
     
-    // Display title or default to "NPC"
-    const displayTitle = npc.title || 'NPC';
-    marker.bindPopup(`${npc.name} (${displayTitle})<br>Level ${npc.level} - ${npc.realm}`);
-    // Show name on hover only - use interactive option
-    marker.bindTooltip(`${npc.name} (${npc.level})`, { 
-      permanent: false, 
-      direction: 'top', 
-      offset: [0, -10], 
-      className: 'compact-tooltip',
+    // Don't bind popup - clicking opens interaction modal instead
+
+    // Create tooltip with image preview on hover
+    const imageName = npc.name.replace(/ /g, '_');
+    const imageUrl = `/assets/npc_images/${encodeURIComponent(imageName)}.jpg`;
+
+    // Create tooltip content with image
+    const tooltipContent = `
+      <div class="npc-tooltip-content">
+        <img class="npc-portrait-hover" src="${imageUrl}" alt="${npc.name}"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+             onload="this.style.display='block';">
+        <div class="npc-tooltip-name" style="display: none;">${npc.name} (${npc.level})</div>
+      </div>
+    `;
+
+    marker.bindTooltip(tooltipContent, {
+      permanent: false,
+      direction: 'top',
+      offset: [0, -10],
+      className: 'npc-image-tooltip',
       interactive: false,
       sticky: false
     });
@@ -1193,52 +1215,20 @@ class RegnumMap {
       }
     });
     
-    marker.on('click', () => this.socket.emit('interactNPC', id));
+    marker.on('click', () => {
+      // Close tooltip on click to prevent it from staying open
+      marker.closeTooltip();
+      this.socket.emit('interactNPC', id);
+    });
     this.npcs[id] = { marker, npc, position: npc.position, healthBarMarker };
   }
 
   updatePlayerPosition(id, position) {
-    if (this.players[id]) {
-      const latLng = this.toLatLng([position.x, position.y]);
-      this.players[id].position = position;
-      if (id === this.socket.id) {
-        // Location display is now updated by the 'moved' event handler
-        this.map.panTo(latLng);
-        this.players[id].marker.setLatLng(latLng); // Keep marker centered
-        if (this.players[id].healthBarMarker) {
-          this.players[id].healthBarMarker.setLatLng(latLng);
-        }
-      } else {
-        this.animateMarker(this.players[id].marker, this.players[id].marker.getLatLng(), latLng, 200);
-        if (this.players[id].healthBarMarker) {
-          this.animateMarker(this.players[id].healthBarMarker, this.players[id].healthBarMarker.getLatLng(), latLng, 200);
-        }
-      }
-    }
+    this.positionManager.updatePlayer(this.players, id, position, this.socket.id);
   }
 
   updateNPCPosition(id, position) {
-    if (this.npcs[id]) {
-      const latLng = this.toLatLng([position.x, position.y]);
-      this.npcs[id].position = position;
-      this.animateMarker(this.npcs[id].marker, this.npcs[id].marker.getLatLng(), latLng, 200);
-      if (this.npcs[id].healthBarMarker) {
-        this.animateMarker(this.npcs[id].healthBarMarker, this.npcs[id].healthBarMarker.getLatLng(), latLng, 200);
-      }
-    }
-  }
-
-  animateMarker(marker, fromLatLng, toLatLng, duration) {
-    const start = Date.now();
-    const animate = () => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const lat = fromLatLng.lat + (toLatLng.lat - fromLatLng.lat) * progress;
-      const lng = fromLatLng.lng + (toLatLng.lng - fromLatLng.lng) * progress;
-      marker.setLatLng([lat, lng]);
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    animate();
+    this.positionManager.updateNPC(this.npcs, id, position);
   }
 
   removePlayer(id) {
@@ -1388,6 +1378,7 @@ class RegnumMap {
       this.shopTitle.textContent = `${npcName}'s Shop`;
     }
     this.currentShopNpcId = npcId;
+    this.transactionManager.setShopNpcId(npcId);
     this.socket.emit('getShopItems', npcId);
     this.playSound('open');
     this.modalManager.show('shop');
@@ -1423,6 +1414,23 @@ class RegnumMap {
     // Set NPC name/title
     if (this.npcNameTitle) {
       this.npcNameTitle.textContent = npcData.title || 'NPC';
+    }
+
+    // Load NPC portrait image
+    const npcPortrait = document.getElementById('npc-portrait');
+    if (npcPortrait && npcData.name) {
+      const imageName = npcData.name.replace(/ /g, '_');
+      npcPortrait.src = `/assets/npc_images/${encodeURIComponent(imageName)}.jpg`;
+      npcPortrait.alt = npcData.name;
+      npcPortrait.style.display = 'none'; // Hide initially
+
+      npcPortrait.onerror = () => {
+        npcPortrait.style.display = 'none'; // Hide if image fails to load
+      };
+
+      npcPortrait.onload = () => {
+        npcPortrait.style.display = 'block'; // Show when image loads successfully
+      };
     }
 
     // Clear previous options
@@ -1538,7 +1546,7 @@ class RegnumMap {
     let tabItems = inventory.filter(item => item.tab_id === this.currentInventoryTab);
 
     // Filter out items that are currently in the transaction list (sell tab)
-    const transactionSellItems = this.transactionList.filter(item => item.transactionType === 'sell');
+    const transactionSellItems = this.transactionManager.getItemsByType('sell');
     const transactionItemIds = new Set(transactionSellItems.map(item => item.id));
     tabItems = tabItems.filter(item => !transactionItemIds.has(item.id));
 
@@ -1635,153 +1643,6 @@ class RegnumMap {
     setTimeout(() => document.addEventListener('click', removeMenu), 10);
   }
 
-  switchTransactionTab(tabType) {
-    this.currentTransactionTab = tabType;
-    
-    // Update tab button styles
-    const tabButtons = this.transactionTabs.querySelectorAll('.transaction-tab-button');
-    tabButtons.forEach(button => {
-      if (button.dataset.tab === tabType) {
-        button.classList.add('active');
-      } else {
-        button.classList.remove('active');
-      }
-    });
-    
-    // Filter and display transaction items for current tab
-    this.displayTransactionItems();
-  }
-
-  addItemToTransaction(itemData, dragSource) {
-    // Auto-switch tab based on item source
-    if (itemData.source === 'shop') {
-      this.switchTransactionTab('buy');
-    } else if (itemData.source === 'inventory') {
-      this.switchTransactionTab('sell');
-    }
-    
-    // Check if item already exists in transaction list
-    const existingIndex = this.transactionList.findIndex(item => 
-      item.id === itemData.id && item.source === itemData.source
-    );
-    
-    if (existingIndex >= 0) {
-      // Increase quantity if stackable
-      if (itemData.stackable) {
-        this.transactionList[existingIndex].quantity = 
-          Math.min(this.transactionList[existingIndex].quantity + 1, itemData.quantity || 1);
-      }
-    } else {
-      // Add new item
-      this.transactionList.push({
-        ...itemData,
-        quantity: 1,
-        transactionType: this.currentTransactionTab
-      });
-    }
-    
-    this.displayTransactionItems();
-    
-    // Refresh inventory display to hide items in transaction
-    if (itemData.source === 'inventory') {
-      this.socket.emit('getInventory');
-    }
-  }
-
-  displayTransactionItems() {
-    if (!this.transactionItems) return;
-    
-    // Clear existing items
-    this.transactionItems.innerHTML = '';
-    
-    // Filter items for current tab
-    const tabItems = this.transactionList.filter(item => 
-      item.transactionType === this.currentTransactionTab
-    );
-    
-    if (tabItems.length === 0) {
-      this.transactionItems.innerHTML = '<div style="text-align: center; color: #ccc; padding: 20px;">Drag items here to start a transaction</div>';
-      return;
-    }
-    
-    tabItems.forEach((item, index) => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'transaction-item';
-      
-      const price = this.currentTransactionTab === 'buy' ? 
-        item.price : Math.floor(item.value * 0.5);
-      
-      itemDiv.innerHTML = `
-        <div class="item-info">
-          <div class="item-name">${item.name}</div>
-          <div class="item-details">${item.type} - ${item.rarity}</div>
-        </div>
-        <div class="item-price">${price}g x${item.quantity}</div>
-        <button class="remove-item" data-index="${index}">×</button>
-      `;
-      
-      // Add remove button handler
-      const removeBtn = itemDiv.querySelector('.remove-item');
-      removeBtn.addEventListener('click', () => {
-        this.removeItemFromTransaction(index);
-      });
-      
-      this.transactionItems.appendChild(itemDiv);
-    });
-  }
-
-  removeItemFromTransaction(index) {
-    this.transactionList.splice(index, 1);
-    this.displayTransactionItems();
-    
-    // Refresh inventory display to show items removed from transaction
-    this.socket.emit('getInventory');
-  }
-
-  confirmTransactionAction() {
-    if (this.transactionList.length === 0) {
-      this.showNotification('No items in transaction');
-      return;
-    }
-    
-    const tabItems = this.transactionList.filter(item => 
-      item.transactionType === this.currentTransactionTab
-    );
-    
-    if (tabItems.length === 0) {
-      this.showNotification('No items in current transaction tab');
-      return;
-    }
-    
-    if (this.currentTransactionTab === 'buy') {
-      // Process buy transaction
-      const buyData = tabItems.map(item => ({
-        itemId: item.item_id,
-        quantity: item.quantity
-      }));
-      
-      this.socket.emit('buyItems', { 
-        npcId: this.currentShopNpcId, 
-        items: buyData 
-      });
-    } else if (this.currentTransactionTab === 'sell') {
-      // Process sell transaction
-      const sellData = tabItems.map(item => ({
-        inventoryId: item.id,
-        quantity: item.quantity
-      }));
-      
-      this.socket.emit('sellItems', { items: sellData });
-    }
-  }
-
-  clearTransactionList() {
-    this.transactionList = [];
-    this.displayTransactionItems();
-    
-    // Refresh inventory to show items that were in transaction
-    this.socket.emit('getInventory');
-  }
 
   playSound(soundTypeOrUrl) {
     try {

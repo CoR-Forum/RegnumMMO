@@ -15,6 +15,9 @@
   <script src="scripts/utils/ModalManager.js" defer></script>
   <script src="scripts/utils/StatManager.js" defer></script>
   <script src="scripts/utils/ItemRenderer.js" defer></script>
+  <script src="scripts/utils/DragDropManager.js" defer></script>
+  <script src="scripts/utils/TransactionManager.js" defer></script>
+  <script src="scripts/utils/PositionManager.js" defer></script>
   <script src="scripts/app.js" defer></script>
 </head>
 <body>
@@ -160,6 +163,9 @@
         </div>
       </div>
       <div class="window-body">
+        <div id="npc-portrait-container">
+          <img id="npc-portrait" src="" alt="NPC Portrait" style="display: none;">
+        </div>
         <div id="npc-interaction-container">
           <div id="npc-options">
             <h3>What can I help you with?</h3>

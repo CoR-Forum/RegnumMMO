@@ -120,6 +120,12 @@ body {
   background: #777;
 }
 
+#char-name {
+  color: #fff !important;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
 .health-bar, .mana-bar, .stamina-bar {
   width: 200px;
   height: 20px;
@@ -1030,4 +1036,83 @@ body {
   border-radius: 50%;
   cursor: pointer;
   pointer-events: auto;
+}
+
+/* NPC Portrait Styles */
+#npc-portrait-container {
+  text-align: center;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+#npc-portrait {
+  max-width: 300px;
+  max-height: 300px;
+  border: 3px solid #666;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  display: block;
+  margin: 0 auto;
+}
+
+/* NPC Tooltip with Image (hover preview) */
+.npc-image-tooltip {
+  background: rgba(20, 20, 20, 0.95) !important;
+  border: 2px solid #666 !important;
+  border-radius: 8px !important;
+  padding: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7) !important;
+}
+
+.npc-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.npc-portrait-small {
+  width: 64px;
+  height: 64px;
+  border: 2px solid #666;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.npc-portrait-hover {
+  width: 180px;
+  height: 180px;
+  border: 2px solid #666;
+  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+}
+
+.npc-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.npc-tooltip-name {
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.npc-info {
+  color: #fff;
+  font-size: 14px;
+  text-align: left;
+}
+
+/* Compact tooltip (text only, used when no image available) */
+.compact-tooltip {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid #666 !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
 }

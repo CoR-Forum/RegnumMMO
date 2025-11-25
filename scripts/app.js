@@ -17,7 +17,7 @@ class RegnumMap {
     normalUserInitialZoom: 9, // Most zoomed in as default
     tilePath: 'https://maps.cor-forum.de/gamemap-tiles/{z}/{x}/{y}.png',
     attribution: `
-      Contribute on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
+      Contribute to RegnumMMO on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
     `.trim()
   });
 

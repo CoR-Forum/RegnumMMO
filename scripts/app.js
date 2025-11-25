@@ -8,6 +8,9 @@ class RegnumMap {
   static MAP_SETTINGS = Object.freeze({
     gameDimensions: [6144, 6144],
     imageDimensions: [18432, 18432], // 3x resolution for better zoom detail
+    // Parabolic Y adjustment: zero at edges, peaks at center to correct mid-map drift
+    yMidAdjust: 25,
+    yScaleAdjust: 1,
     initialZoom: 7,
     maxZoom: 9,
     minZoom: 1,
@@ -206,6 +209,67 @@ class RegnumMap {
 
     const marker8 = L.marker(this.toLatLng([0, 0])).addTo(this.map);
     marker8.bindPopup("0, 0");
+
+    // New markers with red icon
+    const redIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      shadowSize: [41, 41]
+    });
+
+    const newMarker1 = L.marker(this.toLatLng([2406.7099, 5454.85]), { icon: redIcon }).addTo(this.map);
+    newMarker1.bindPopup("Unknown (dungeon_cave)");
+
+    const newMarker2 = L.marker(this.toLatLng([1596.988, 2518.0109]), { icon: redIcon }).addTo(this.map);
+    newMarker2.bindPopup("Trelleborg Fort (fort)");
+
+    const newMarker3 = L.marker(this.toLatLng([2345.4399, 4063.4899]), { icon: redIcon }).addTo(this.map);
+    newMarker3.bindPopup("Syrtis Great Wall (fort)");
+
+    const newMarker4 = L.marker(this.toLatLng([2537.416, 3463.257]), { icon: redIcon }).addTo(this.map);
+    newMarker4.bindPopup("Unknown (zeppelin)");
+
+    const newMarker5 = L.marker(this.toLatLng([2872.4121, 3265.644]), { icon: redIcon }).addTo(this.map);
+    newMarker5.bindPopup("Herbred Fort (fort)");
+
+    const newMarker6 = L.marker(this.toLatLng([2625.32, 1129.3299]), { icon: redIcon }).addTo(this.map);
+    newMarker6.bindPopup("Imperia Castle (fort)");
+
+    const newMarker7 = L.marker(this.toLatLng([526.782, 5393.2402]), { icon: redIcon }).addTo(this.map);
+    newMarker7.bindPopup("Unknown (zeppelin)");
+
+    const newMarker8 = L.marker(this.toLatLng([1047.7709, 5462.9482]), { icon: redIcon }).addTo(this.map);
+    newMarker8.bindPopup("Unknown (zeppelin)");
+
+    const newMarker9 = L.marker(this.toLatLng([3332.6547, 1772.056]), { icon: redIcon }).addTo(this.map);
+    newMarker9.bindPopup("Menirah Fort (fort)");
+
+    const newMarker10 = L.marker(this.toLatLng([2668.666, 2487.7219]), { icon: redIcon }).addTo(this.map);
+    newMarker10.bindPopup("Aggersborg Fort (fort)");
+
+    const newMarker11 = L.marker(this.toLatLng([4652.1899, 3054.52]), { icon: redIcon }).addTo(this.map);
+    newMarker11.bindPopup("Shaanarid Castle (fort)");
+
+    const newMarker12 = L.marker(this.toLatLng([3639.7409, 2509.854]), { icon: redIcon }).addTo(this.map);
+    newMarker12.bindPopup("Samal Fort (fort)");
+
+    const newMarker13 = L.marker(this.toLatLng([1261.153, 4598.1489]), { icon: redIcon }).addTo(this.map);
+    newMarker13.bindPopup("Unknown (zeppelin)");
+
+    const newMarker14 = L.marker(this.toLatLng([3665.6298, 4873.1801]), { icon: redIcon }).addTo(this.map);
+    newMarker14.bindPopup("Eferias Castle (fort)");
+
+    const newMarker15 = L.marker(this.toLatLng([4170.4111, 1977.4531]), { icon: redIcon }).addTo(this.map);
+    newMarker15.bindPopup("Ignis Great Wall (fort)");
+
+    const newMarker16 = L.marker(this.toLatLng([1730.38, 2103.4899]), { icon: redIcon }).addTo(this.map);
+    newMarker16.bindPopup("Alsius Great Wall (fort)");
+
+    const newMarker17 = L.marker(this.toLatLng([1725.5009, 3259.6547]), { icon: redIcon }).addTo(this.map);
+    newMarker17.bindPopup("Algaros Fort (fort)");
   }
 
   toLatLng = (coords) => {
@@ -214,8 +278,10 @@ class RegnumMap {
     }
     
     // Scale game coordinates to tile map coordinates
+    const t = coords[1] / RegnumMap.MAP_SETTINGS.gameDimensions[1];
+    const curvedAdjust = (RegnumMap.MAP_SETTINGS.yMidAdjust || 0) * (t * (1 - t) * 4); // 0 at edges, 1 at center
     const imageX = coords[0] * this.scaleX;
-    const imageY = coords[1] * this.scaleY;
+    const imageY = (coords[1] - curvedAdjust) * this.scaleY * RegnumMap.MAP_SETTINGS.yScaleAdjust;
     
     return this.rasterCoords.unproject([imageX, imageY]);
   };

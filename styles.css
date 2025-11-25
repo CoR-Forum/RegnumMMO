@@ -1013,3 +1013,18 @@ body {
   white-space: nowrap !important;
   line-height: 1.2 !important;
 }
+
+/* NPC marker styles */
+.npc-marker-icon {
+  background: transparent !important;
+  border: none !important;
+  pointer-events: auto !important;
+}
+
+.npc-circle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+}

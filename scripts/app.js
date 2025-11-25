@@ -1146,20 +1146,18 @@ class RegnumMap {
   addNPC(id, npc) {
     const latLng = this.toLatLng([npc.position.x, npc.position.y]);
     
-    // Different icons based on NPC features
-    let iconUrl = 'https://img.icons8.com/material-outlined/24/person-male.png'; // default
+    // Realm-specific colors for NPC circles
+    let realmColor = '#888888'; // default gray
+    if (npc.realm === 'Syrtis') realmColor = '#00ff00'; // green
+    else if (npc.realm === 'Alsius') realmColor = '#0088ff'; // blue
+    else if (npc.realm === 'Ignis') realmColor = '#ff0000'; // red
     
-    if (npc.has_shop) iconUrl = 'https://img.icons8.com/material-outlined/24/shop.png';
-    else if (npc.has_guard_duties) iconUrl = 'https://img.icons8.com/material-outlined/24/shield.png';
-    else if (npc.has_healing) iconUrl = 'https://img.icons8.com/material-outlined/24/medical-heart.png';
-    else if (npc.has_blacksmith) iconUrl = 'https://img.icons8.com/material-outlined/24/anvil.png';
-    else if (npc.has_quests) iconUrl = 'https://img.icons8.com/material-outlined/24/quest.png';
+    const iconSize = [12, 12];
+    const iconAnchor = [6, 6];
     
-    const iconSize = [20, 20];
-    const iconAnchor = [10, 20];
-    
-    const npcIcon = L.icon({
-      iconUrl: iconUrl,
+    const npcIcon = L.divIcon({
+      className: 'npc-marker-icon',
+      html: `<div class="npc-circle" style="background: ${realmColor};"></div>`,
       iconSize: iconSize,
       iconAnchor: iconAnchor
     });
@@ -1172,8 +1170,15 @@ class RegnumMap {
     // Display title or default to "NPC"
     const displayTitle = npc.title || 'NPC';
     marker.bindPopup(`${npc.name} (${displayTitle})<br>Level ${npc.level} - ${npc.realm}`);
-    // Position name above health bar for MMO-like appearance
-    marker.bindTooltip(`${npc.name} (${npc.level})`, { permanent: true, direction: 'top', offset: [0, -34], className: 'compact-tooltip' });
+    // Show name on hover only - use interactive option
+    marker.bindTooltip(`${npc.name} (${npc.level})`, { 
+      permanent: false, 
+      direction: 'top', 
+      offset: [0, -10], 
+      className: 'compact-tooltip',
+      interactive: false,
+      sticky: false
+    });
     
     marker.on('click', () => this.socket.emit('interactNPC', id));
     this.npcs[id] = { marker, npc, position: npc.position, healthBarMarker };

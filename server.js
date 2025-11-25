@@ -236,9 +236,6 @@ const INITIAL_ZOOM = 9;
 const npcs = {};
 
 // Helper function for errors
-
-
-// Helper function for errors
 const sendError = (res, msg, code = 500) => res.status(code).json({ error: msg });
 
 // Function to get NPCs visible from a position

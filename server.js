@@ -19,6 +19,7 @@ const { getPlayerInventory, validateAndFetchShopItem, syncPlayerToDB, getShopIte
 const { handleNPCInteraction, getVisibleNPCs, isNearMerchant } = require('./utils/npc');
 const PlayerStateManager = require('./managers/PlayerStateManager');
 const ErrorHandler = require('./managers/ErrorHandler');
+const regionData = require('./data/regions');
 
 const redisClient = redis.createClient({
   socket: {
@@ -462,6 +463,10 @@ app.get('/api/character/:id', (req, res) => {
 
 app.get('/api/game-data', (req, res) => {
   res.json(gameData);
+});
+
+app.get('/api/regions', (req, res) => {
+  res.json(regionData);
 });
 
 app.post('/api/characters', (req, res) => {

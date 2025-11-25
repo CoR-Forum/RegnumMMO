@@ -31,6 +31,8 @@ class RegnumMap {
     this.currentPlayer = null;
     this.playerSpeed = 0; // Will be set by server
     this.latency = 0;
+    this.regionLayers = null;
+    this.regionData = null;
     this.currentShopNpcId = null;
     this.isMoving = false;
     this.footstepInterval = null;
@@ -43,6 +45,8 @@ class RegnumMap {
     try {
       this.createMap();
       this.setupTileLayer();
+      this.setupRegionLayers();
+      this.loadRegionData();
     } catch (error) {
       console.error('Failed to initialize map:', error);
     }
@@ -98,6 +102,79 @@ class RegnumMap {
 
     // Add static map markers
     this.addStaticMarkers();
+  }
+
+  setupRegionLayers() {
+    if (!this.map) return;
+    this.regionLayers = {
+      world: L.layerGroup().addTo(this.map),
+      islands: L.layerGroup().addTo(this.map),
+      areas: L.layerGroup().addTo(this.map)
+    };
+  }
+
+  async loadRegionData() {
+    try {
+      const res = await fetch('/api/regions');
+      if (!res.ok) throw new Error(`Failed to load regions: ${res.status}`);
+      this.regionData = await res.json();
+      this.renderRegionOverlays(this.regionData);
+    } catch (error) {
+      console.warn('Could not load region data:', error);
+    }
+  }
+
+  renderRegionOverlays(data) {
+    if (!data || !this.regionLayers) return;
+    Object.values(this.regionLayers).forEach(layer => layer.clearLayers());
+
+    if (data.worldBorder?.points?.length) {
+      this.drawRegionPolygon(
+        data.worldBorder.points,
+        { color: '#f9b233', weight: 2, fill: false, ...data.worldBorder.style },
+        this.regionLayers.world,
+        data.worldBorder.name || 'World Border'
+      );
+    }
+
+    (data.islandBorders || []).forEach(border => {
+      this.drawRegionPolygon(
+        border.points,
+        { color: '#888', weight: 1, fillOpacity: 0.05, ...border.style },
+        this.regionLayers.islands,
+        border.name || border.type
+      );
+    });
+
+    (data.areas || []).forEach(area => {
+      this.drawRegionPolygon(
+        area.points,
+        { color: '#999', weight: 1, fillOpacity: 0.1, ...area.style },
+        this.regionLayers.areas,
+        area.name,
+        true
+      );
+    });
+  }
+
+  drawRegionPolygon(points, style = {}, targetLayer, label, permanentLabel = false) {
+    if (!targetLayer || !points || points.length === 0) return null;
+    const latLngs = points.map(pt => this.toLatLng(pt));
+    const polygon = L.polygon(latLngs, {
+      interactive: false,
+      smoothFactor: 1,
+      ...style
+    }).addTo(targetLayer);
+
+    if (label) {
+      polygon.bindTooltip(label, {
+        permanent: permanentLabel,
+        direction: 'center',
+        className: 'region-label'
+      });
+    }
+
+    return polygon;
   }
 
   addStaticMarkers() {
@@ -695,8 +772,38 @@ class RegnumMap {
     if (this.inventoryBtn) this.inventoryBtn.style.display = 'block';
   }
 
+  isPointInPolygon(point, polygon = []) {
+    if (!polygon.length) return false;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][0], yi = polygon[i][1];
+      const xj = polygon[j][0], yj = polygon[j][1];
+      const intersect = ((yi > point[1]) !== (yj > point[1])) &&
+        (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  getRegionContext(position) {
+    if (!this.regionData) return {};
+    const point = [position.x, position.y];
+    const area = (this.regionData.areas || []).find(region => this.isPointInPolygon(point, region.points || []));
+    const island = (this.regionData.islandBorders || []).find(region => this.isPointInPolygon(point, region.points || []));
+    return {
+      area: area ? area.name : null,
+      island: island ? island.name : null
+    };
+  }
+
   updateLocationDisplay(position) {
-    if (this.locationDisplay) this.locationDisplay.textContent = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
+    if (!this.locationDisplay) return;
+    const coordsText = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
+    const context = this.getRegionContext(position);
+    const labels = [];
+    if (context.area) labels.push(context.area);
+    if (context.island) labels.push(context.island);
+    this.locationDisplay.textContent = labels.length ? `${coordsText} (${labels.join(' — ')})` : coordsText;
   }
 
   updateZoomDisplay(zoom) {

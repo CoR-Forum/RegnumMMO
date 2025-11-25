@@ -840,6 +840,13 @@ class RegnumMap {
       if (this.healthFill) this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
       if (this.healthText) this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
       if (this.healthRegen) this.healthRegen.textContent = `(+${data.regen}/s)`;
+      
+      // Update health bar on map for current player
+      if (this.players[this.socket.id]) {
+        this.players[this.socket.id].character.current_health = data.current;
+        this.players[this.socket.id].character.max_health = data.max;
+        this.updateHealthBar(this.players[this.socket.id].healthBarMarker, this.players[this.socket.id].character);
+      }
     });
 
     this.socket.on('openShop', (data) => {
@@ -880,18 +887,123 @@ class RegnumMap {
 
   addPlayer(id, character, position, isCurrent = false) {
     const latLng = this.toLatLng([position.x, position.y]);
-    const userIcon = L.icon({
-      iconUrl: 'https://img.icons8.com/material-outlined/24/user.png',
-      iconSize: [16, 16],
-      iconAnchor: [8, 16]
-    });
-    const marker = L.marker(latLng, { icon: userIcon }).addTo(this.map);
-    marker.bindPopup(`${character.name} (Lv.${character.level}) (${character.race} ${character.class})`);
-    marker.bindTooltip(`${character.name} (Lv.${character.level})`, { permanent: true, direction: 'top', offset: [0, -16] });
+    
+    // Use realm-based colors for other players, grey for own player
+    let playerIcon;
+    let iconSize, iconAnchor;
+    
     if (isCurrent) {
-      marker.setIcon(L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [20, 32], iconAnchor: [10, 32] }));
+      // Current player: grey marker
+      playerIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        shadowSize: [41, 41]
+      });
+      iconSize = [25, 41];
+      iconAnchor = [12, 41];
+    } else {
+      // Other players: realm-based colors (Syrtis=green, Ignis=red, Alsius=blue)
+      let colorUrl;
+      const realm = character.realm ? character.realm.toLowerCase() : 'syrtis';
+      
+      if (realm === 'syrtis') {
+        colorUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png';
+      } else if (realm === 'ignis') {
+        colorUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
+      } else if (realm === 'alsius') {
+        colorUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+      } else {
+        colorUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png';
+      }
+      
+      playerIcon = L.icon({
+        iconUrl: colorUrl,
+        iconSize: [20, 33],
+        iconAnchor: [10, 33],
+        popupAnchor: [0, -28]
+      });
+      iconSize = [20, 33];
+      iconAnchor = [10, 33];
     }
-    this.players[id] = { marker, character, position };
+    
+    const marker = L.marker(latLng, { icon: playerIcon }).addTo(this.map);
+    marker.bindPopup(`${character.name} (Lv.${character.level}) (${character.race} ${character.class})`);
+    
+    // Create and add health bar marker positioned above the marker icon
+    const healthBarMarker = this.createHealthBarMarker(latLng, character, iconSize, iconAnchor);
+    
+    // Position name above health bar for MMO-like appearance
+    // Offset accounts for marker height + health bar height + spacing
+    const nameOffset = isCurrent ? [0, -53] : [0, -45];
+    marker.bindTooltip(`${character.name} (${character.level})`, { 
+      permanent: true, 
+      direction: 'top', 
+      offset: nameOffset,
+      className: 'compact-tooltip'
+    });
+    
+    this.players[id] = { marker, character, position, healthBarMarker };
+  }
+
+  createHealthBarMarker(latLng, entity, iconSize, iconAnchor) {
+    const healthPercent = entity.current_health && entity.max_health ? 
+      (entity.current_health / entity.max_health) * 100 : 100;
+    
+    // Create a custom div icon for the health bar
+    // Position it just above the marker icon
+    const healthBarHtml = `
+      <div style="
+        width: 40px;
+        height: 4px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 2px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.7);
+      ">
+        <div class="health-bar-fill" style="
+          width: ${healthPercent}%;
+          height: 100%;
+          background: ${healthPercent > 50 ? '#4CAF50' : healthPercent > 25 ? '#FF9800' : '#F44336'};
+          transition: width 0.3s ease;
+        "></div>
+      </div>
+    `;
+    
+    // Position health bar above the marker
+    // iconAnchor Y value should be iconSize[1] + offset to position it above the marker tip
+    const healthBarIcon = L.divIcon({
+      html: healthBarHtml,
+      className: 'health-bar-marker',
+      iconSize: [40, 4],
+      iconAnchor: [20, iconSize[1] + 6]
+    });
+    
+    const healthBarMarker = L.marker(latLng, { 
+      icon: healthBarIcon,
+      interactive: false,
+      zIndexOffset: 1
+    }).addTo(this.map);
+    
+    return healthBarMarker;
+  }
+  
+  updateHealthBar(healthBarMarker, entity) {
+    if (!healthBarMarker) return;
+    
+    const healthPercent = entity.current_health && entity.max_health ? 
+      (entity.current_health / entity.max_health) * 100 : 100;
+    
+    const healthBarElement = healthBarMarker.getElement();
+    if (healthBarElement) {
+      const fillElement = healthBarElement.querySelector('.health-bar-fill');
+      if (fillElement) {
+        fillElement.style.width = `${healthPercent}%`;
+        fillElement.style.background = healthPercent > 50 ? '#4CAF50' : healthPercent > 25 ? '#FF9800' : '#F44336';
+      }
+    }
   }
 
   addNPC(id, npc) {
@@ -906,21 +1018,28 @@ class RegnumMap {
     else if (npc.has_blacksmith) iconUrl = 'https://img.icons8.com/material-outlined/24/anvil.png';
     else if (npc.has_quests) iconUrl = 'https://img.icons8.com/material-outlined/24/quest.png';
     
+    const iconSize = [20, 20];
+    const iconAnchor = [10, 20];
+    
     const npcIcon = L.icon({
       iconUrl: iconUrl,
-      iconSize: [20, 20],
-      iconAnchor: [10, 20]
+      iconSize: iconSize,
+      iconAnchor: iconAnchor
     });
     
     const marker = L.marker(latLng, { icon: npcIcon }).addTo(this.map);
     
+    // Create and add health bar marker for NPC positioned above the marker icon
+    const healthBarMarker = this.createHealthBarMarker(latLng, npc, iconSize, iconAnchor);
+    
     // Display title or default to "NPC"
     const displayTitle = npc.title || 'NPC';
     marker.bindPopup(`${npc.name} (${displayTitle})<br>Level ${npc.level} - ${npc.realm}`);
-    marker.bindTooltip(`${npc.name} (Lv.${npc.level})`, { permanent: true, direction: 'top', offset: [0, -20] });
+    // Position name above health bar for MMO-like appearance
+    marker.bindTooltip(`${npc.name} (${npc.level})`, { permanent: true, direction: 'top', offset: [0, -34], className: 'compact-tooltip' });
     
     marker.on('click', () => this.socket.emit('interactNPC', id));
-    this.npcs[id] = { marker, npc, position: npc.position };
+    this.npcs[id] = { marker, npc, position: npc.position, healthBarMarker };
   }
 
   updatePlayerPosition(id, position) {
@@ -931,8 +1050,14 @@ class RegnumMap {
         // Location display is now updated by the 'moved' event handler
         this.map.panTo(latLng);
         this.players[id].marker.setLatLng(latLng); // Keep marker centered
+        if (this.players[id].healthBarMarker) {
+          this.players[id].healthBarMarker.setLatLng(latLng);
+        }
       } else {
         this.animateMarker(this.players[id].marker, this.players[id].marker.getLatLng(), latLng, 200);
+        if (this.players[id].healthBarMarker) {
+          this.animateMarker(this.players[id].healthBarMarker, this.players[id].healthBarMarker.getLatLng(), latLng, 200);
+        }
       }
     }
   }
@@ -942,6 +1067,9 @@ class RegnumMap {
       const latLng = this.toLatLng([position.x, position.y]);
       this.npcs[id].position = position;
       this.animateMarker(this.npcs[id].marker, this.npcs[id].marker.getLatLng(), latLng, 200);
+      if (this.npcs[id].healthBarMarker) {
+        this.animateMarker(this.npcs[id].healthBarMarker, this.npcs[id].healthBarMarker.getLatLng(), latLng, 200);
+      }
     }
   }
 
@@ -961,6 +1089,9 @@ class RegnumMap {
   removePlayer(id) {
     if (this.players[id]) {
       this.map.removeLayer(this.players[id].marker);
+      if (this.players[id].healthBarMarker) {
+        this.map.removeLayer(this.players[id].healthBarMarker);
+      }
       delete this.players[id];
     }
   }
@@ -968,6 +1099,9 @@ class RegnumMap {
   removeNPC(id) {
     if (this.npcs[id]) {
       this.map.removeLayer(this.npcs[id].marker);
+      if (this.npcs[id].healthBarMarker) {
+        this.map.removeLayer(this.npcs[id].healthBarMarker);
+      }
       delete this.npcs[id];
     }
   }

@@ -31,6 +31,7 @@ class RegnumMap {
     this.socket = null;
     this.players = {}; // { id: { marker, character } }
     this.npcs = {}; // { id: { marker, npc } }
+    this.markers = {}; // { id: { marker, data } }
     this.currentPlayer = null;
     this.playerSpeed = 0; // Will be set by server
     this.latency = 0;
@@ -102,9 +103,6 @@ class RegnumMap {
       updateWhenIdle: false,
       errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII='
     }).addTo(this.map);
-
-    // Add static map markers
-    this.addStaticMarkers();
   }
 
   setupRegionLayers() {
@@ -180,96 +178,47 @@ class RegnumMap {
     return polygon;
   }
 
-  addStaticMarkers() {
-    // Marker 1: Example location
-    const marker1 = L.marker(this.toLatLng([2998.2917480469, 2963.8518066406])).addTo(this.map);
-    marker1.bindPopup("2998.2917480469, 2963.8518066406");
-
-    // Marker 2: Another example location
-    const marker2 = L.marker(this.toLatLng([3746.0209960938, 2191.4299316406])).addTo(this.map);
-    marker2.bindPopup("3746.0209960938, 2191.4299316406");
-
-    // Marker 3: Third example location
-    const marker3 = L.marker(this.toLatLng([4908.4072265625, 1669.7856445313])).addTo(this.map);
-    marker3.bindPopup("4908.4072265625, 1669.7856445313");
-
-    // Marker 4: Fourth example location
-    const marker4 = L.marker(this.toLatLng([2632.6618652344, 3177.3698730469])).addTo(this.map);
-    marker4.bindPopup("2632.6618652344, 3177.3698730469");
-
-    // Marker 5: Fifth example location
-    const marker5 = L.marker(this.toLatLng([2451.1330566406, 3987.1953125])).addTo(this.map);
-    marker5.bindPopup("2451.1330566406, 3987.1953125");
-
-    const marker6 = L.marker(this.toLatLng([6144, 6144])).addTo(this.map);
-    marker6.bindPopup("6144, 6144");
-
-    const marker7 = L.marker(this.toLatLng([8862, 8879])).addTo(this.map);
-    marker7.bindPopup("8862, 8879");
-
-    const marker8 = L.marker(this.toLatLng([0, 0])).addTo(this.map);
-    marker8.bindPopup("0, 0");
-
-    // New markers with red icon
-    const redIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      shadowSize: [41, 41]
-    });
-
-    const newMarker1 = L.marker(this.toLatLng([2406.7099, 5454.85]), { icon: redIcon }).addTo(this.map);
-    newMarker1.bindPopup("Unknown (dungeon_cave)");
-
-    const newMarker2 = L.marker(this.toLatLng([1596.988, 2518.0109]), { icon: redIcon }).addTo(this.map);
-    newMarker2.bindPopup("Trelleborg Fort (fort)");
-
-    const newMarker3 = L.marker(this.toLatLng([2345.4399, 4063.4899]), { icon: redIcon }).addTo(this.map);
-    newMarker3.bindPopup("Syrtis Great Wall (fort)");
-
-    const newMarker4 = L.marker(this.toLatLng([2537.416, 3463.257]), { icon: redIcon }).addTo(this.map);
-    newMarker4.bindPopup("Unknown (zeppelin)");
-
-    const newMarker5 = L.marker(this.toLatLng([2872.4121, 3265.644]), { icon: redIcon }).addTo(this.map);
-    newMarker5.bindPopup("Herbred Fort (fort)");
-
-    const newMarker6 = L.marker(this.toLatLng([2625.32, 1129.3299]), { icon: redIcon }).addTo(this.map);
-    newMarker6.bindPopup("Imperia Castle (fort)");
-
-    const newMarker7 = L.marker(this.toLatLng([526.782, 5393.2402]), { icon: redIcon }).addTo(this.map);
-    newMarker7.bindPopup("Unknown (zeppelin)");
-
-    const newMarker8 = L.marker(this.toLatLng([1047.7709, 5462.9482]), { icon: redIcon }).addTo(this.map);
-    newMarker8.bindPopup("Unknown (zeppelin)");
-
-    const newMarker9 = L.marker(this.toLatLng([3332.6547, 1772.056]), { icon: redIcon }).addTo(this.map);
-    newMarker9.bindPopup("Menirah Fort (fort)");
-
-    const newMarker10 = L.marker(this.toLatLng([2668.666, 2487.7219]), { icon: redIcon }).addTo(this.map);
-    newMarker10.bindPopup("Aggersborg Fort (fort)");
-
-    const newMarker11 = L.marker(this.toLatLng([4652.1899, 3054.52]), { icon: redIcon }).addTo(this.map);
-    newMarker11.bindPopup("Shaanarid Castle (fort)");
-
-    const newMarker12 = L.marker(this.toLatLng([3639.7409, 2509.854]), { icon: redIcon }).addTo(this.map);
-    newMarker12.bindPopup("Samal Fort (fort)");
-
-    const newMarker13 = L.marker(this.toLatLng([1261.153, 4598.1489]), { icon: redIcon }).addTo(this.map);
-    newMarker13.bindPopup("Unknown (zeppelin)");
-
-    const newMarker14 = L.marker(this.toLatLng([3665.6298, 4873.1801]), { icon: redIcon }).addTo(this.map);
-    newMarker14.bindPopup("Eferias Castle (fort)");
-
-    const newMarker15 = L.marker(this.toLatLng([4170.4111, 1977.4531]), { icon: redIcon }).addTo(this.map);
-    newMarker15.bindPopup("Ignis Great Wall (fort)");
-
-    const newMarker16 = L.marker(this.toLatLng([1730.38, 2103.4899]), { icon: redIcon }).addTo(this.map);
-    newMarker16.bindPopup("Alsius Great Wall (fort)");
-
-    const newMarker17 = L.marker(this.toLatLng([1725.5009, 3259.6547]), { icon: redIcon }).addTo(this.map);
-    newMarker17.bindPopup("Algaros Fort (fort)");
+  addMarker(id, markerData) {
+    const latLng = this.toLatLng([markerData.position.x, markerData.position.y]);
+    
+    let markerIcon;
+    
+    // Use custom icon for zeppelin type
+    if (markerData.type === 'zeppelin') {
+      markerIcon = L.icon({
+        iconUrl: 'https://cor-forum.de/regnum/datengrab/res/TEXTURE/80334-icon%20map%20zeppelin.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
+      });
+    } else {
+      // Create icon based on color for other types
+      const iconUrls = {
+        'red': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+        'blue': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+        'green': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+        'orange': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+        'yellow': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
+        'violet': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-violet.png',
+        'grey': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+        'black': 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-black.png'
+      };
+      
+      const iconUrl = iconUrls[markerData.icon_color] || iconUrls['blue'];
+      markerIcon = L.icon({
+        iconUrl: iconUrl,
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        shadowSize: [41, 41]
+      });
+    }
+    
+    const marker = L.marker(latLng, { icon: markerIcon }).addTo(this.map);
+    marker.bindPopup(markerData.description || markerData.name);
+    
+    this.markers[id] = { marker, data: markerData };
   }
 
   toLatLng = (coords) => {
@@ -634,6 +583,8 @@ class RegnumMap {
     this.currentPlayer = null;
     // Clear NPCs
     Object.keys(this.npcs).forEach(id => this.removeNPC(id));
+    // Clear markers
+    Object.keys(this.markers).forEach(id => this.removeMarker(id));
     alert('Logged out successfully.');
   }
 
@@ -895,6 +846,8 @@ class RegnumMap {
     this.currentPlayer = null;
     // Clear NPCs
     Object.keys(this.npcs).forEach(id => this.removeNPC(id));
+    // Clear markers
+    Object.keys(this.markers).forEach(id => this.removeMarker(id));
     // Show character modal
     this.showCharacterModal();
   }
@@ -951,6 +904,10 @@ class RegnumMap {
 
     this.socket.on('npcs', (npcs) => {
       npcs.forEach(npc => this.addNPC(npc.id, npc));
+    });
+
+    this.socket.on('markers', (markers) => {
+      markers.forEach(marker => this.addMarker(marker.id, marker));
     });
 
     this.socket.on('playerJoined', (data) => {
@@ -1276,6 +1233,13 @@ class RegnumMap {
         this.map.removeLayer(this.npcs[id].healthBarMarker);
       }
       delete this.npcs[id];
+    }
+  }
+
+  removeMarker(id) {
+    if (this.markers[id]) {
+      this.map.removeLayer(this.markers[id].marker);
+      delete this.markers[id];
     }
   }
 

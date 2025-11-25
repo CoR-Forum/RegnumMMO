@@ -20,6 +20,7 @@ const { handleNPCInteraction, getVisibleNPCs, isNearMerchant } = require('./util
 const PlayerStateManager = require('./managers/PlayerStateManager');
 const ErrorHandler = require('./managers/ErrorHandler');
 const regionData = require('./data/regions');
+const markersData = require('./data/markers');
 
 const redisClient = redis.createClient({
   socket: {
@@ -114,6 +115,26 @@ async function importExampleNPCs() {
   }
 }
 
+// Function to load markers from data file
+function loadMarkers() {
+  try {
+    markersData.forEach((marker, index) => {
+      const id = index + 1; // Simple incrementing ID
+      markers[id] = {
+        id: id,
+        name: marker.name,
+        description: marker.description,
+        position: marker.position,
+        type: marker.type,
+        icon_color: marker.icon_color
+      };
+    });
+    console.log(`Loaded ${Object.keys(markers).length} markers from data file`);
+  } catch (error) {
+    console.error('Error loading markers:', error);
+  }
+}
+
 // Function to import example NPCs to database
 async function loadNPCsFromDatabase() {
   try {
@@ -155,6 +176,9 @@ let authManager;
 
 // NPC storage
 const npcs = {};
+
+// Markers storage
+const markers = {};
 
 // Initialize Player State Manager (will be set after io is ready)
 let playerStateManager;
@@ -379,6 +403,7 @@ async function waitForDatabase() {
     await importExampleNPCs();
     await importShopItems();
     await loadNPCsFromDatabase();
+    loadMarkers();
     
     console.log('Server initialization complete');
   } catch (error) {
@@ -467,6 +492,11 @@ app.get('/api/game-data', (req, res) => {
 
 app.get('/api/regions', (req, res) => {
   res.json(regionData);
+});
+
+app.get('/api/markers', (req, res) => {
+  // Send all markers to client (similar to regions)
+  res.json(Object.values(markers));
 });
 
 app.post('/api/characters', (req, res) => {
@@ -620,6 +650,8 @@ io.on('connection', (socket) => {
       socket.emit('npcs', visibleNPCs);
       // Track visible NPCs
       visibleNPCs.forEach(npc => players[socket.id].visibleNPCs.add(npc.id));
+      // Send all markers to this player
+      socket.emit('markers', Object.values(markers));
     } catch (err) {
       socket.emit('error', `Database error: ${err.message}`);
     }

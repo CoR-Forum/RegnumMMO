@@ -1152,8 +1152,8 @@ class RegnumMap {
     else if (npc.realm === 'Alsius') realmColor = '#0088ff'; // blue
     else if (npc.realm === 'Ignis') realmColor = '#ff0000'; // red
     
-    const iconSize = [12, 12];
-    const iconAnchor = [6, 6];
+    const iconSize = [6, 6];
+    const iconAnchor = [3, 3];
     
     const npcIcon = L.divIcon({
       className: 'npc-marker-icon',
@@ -1164,8 +1164,9 @@ class RegnumMap {
     
     const marker = L.marker(latLng, { icon: npcIcon }).addTo(this.map);
     
-    // Create and add health bar marker for NPC positioned above the marker icon
+    // Create health bar marker for NPC but don't add it to map yet (only show on hover)
     const healthBarMarker = this.createHealthBarMarker(latLng, npc, iconSize, iconAnchor);
+    healthBarMarker.remove(); // Remove from map initially
     
     // Display title or default to "NPC"
     const displayTitle = npc.title || 'NPC';
@@ -1178,6 +1179,18 @@ class RegnumMap {
       className: 'compact-tooltip',
       interactive: false,
       sticky: false
+    });
+    
+    // Show health bar on hover
+    marker.on('mouseover', () => {
+      if (healthBarMarker) {
+        healthBarMarker.addTo(this.map);
+      }
+    });
+    marker.on('mouseout', () => {
+      if (healthBarMarker) {
+        healthBarMarker.remove();
+      }
     });
     
     marker.on('click', () => this.socket.emit('interactNPC', id));

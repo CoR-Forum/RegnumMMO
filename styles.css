@@ -1022,8 +1022,8 @@ body {
 }
 
 .npc-circle {
-  width: 12px;
-  height: 12px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   cursor: pointer;
   pointer-events: auto;

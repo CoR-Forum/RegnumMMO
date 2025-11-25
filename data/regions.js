@@ -34,7 +34,7 @@ const regionData = {
         color: '#2ecc71',
         weight: 2,
         fillColor: '#2ecc71',
-        fillOpacity: 0.05
+        fillOpacity: 0.00
       }
     },
     {
@@ -52,7 +52,7 @@ const regionData = {
         color: '#e74c3c',
         weight: 2,
         fillColor: '#e74c3c',
-        fillOpacity: 0.05
+        fillOpacity: 0.00
       }
     },
     {
@@ -70,7 +70,7 @@ const regionData = {
         color: '#3498db',
         weight: 2,
         fillColor: '#3498db',
-        fillOpacity: 0.05
+        fillOpacity: 0.00
       }
     },
     {
@@ -87,7 +87,7 @@ const regionData = {
         color: '#f1c40f',
         weight: 2,
         fillColor: '#f1c40f',
-        fillOpacity: 0.04,
+        fillOpacity: 0.00,
         dashArray: '6 4'
       }
     }
@@ -108,7 +108,7 @@ const regionData = {
         color: '#27ae60',
         weight: 2,
         fillColor: '#2ecc71',
-        fillOpacity: 0.12
+        fillOpacity: 0.00
       }
     },
     {
@@ -126,7 +126,7 @@ const regionData = {
         color: '#c0392b',
         weight: 2,
         fillColor: '#e74c3c',
-        fillOpacity: 0.12
+        fillOpacity: 0.00
       }
     },
     {
@@ -144,7 +144,7 @@ const regionData = {
         color: '#2471a3',
         weight: 2,
         fillColor: '#3498db',
-        fillOpacity: 0.12
+        fillOpacity: 0.00
       }
     },
     {
@@ -162,7 +162,7 @@ const regionData = {
         color: '#f39c12',
         weight: 2,
         fillColor: '#f1c40f',
-        fillOpacity: 0.12
+        fillOpacity: 0.00
       }
     }
   ]

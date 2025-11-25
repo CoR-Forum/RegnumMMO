@@ -13,3 +13,5 @@ yarn-error.log
 .env.production.local
 
 mariadb_data/
+
+rodata/

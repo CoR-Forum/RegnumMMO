@@ -6,7 +6,7 @@
 const GAME_CONFIG = {
   // Movement constants
   MOVEMENT: {
-    BASE_SPEED: 0.3,
+    BASE_SPEED: 0.25,
     SPRINT_MULTIPLIER: 20,
     MOVEMENT_KEYS: ['w', 'a', 's', 'd', 'shift']
   },

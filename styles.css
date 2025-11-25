@@ -422,35 +422,59 @@ body {
   font-size: 14px;
 }
 
-/* Shop and Inventory Styles */
+/* ============================================
+   GAME-STYLE WINDOW SYSTEM
+   ============================================ */
+
+/* Base modal styles - mobile first */
 #shop-modal, #inventory-modal {
   display: none;
   position: fixed;
   z-index: 1002;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  border: 2px solid #666;
+  background: linear-gradient(135deg, rgba(26, 26, 36, 0.98) 0%, rgba(15, 15, 21, 0.98) 100%);
+  border: 3px solid var(--regnum-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  touch-action: none;
+
+  /* Mobile first - centered */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 92vw;
+  max-width: 450px;
+  max-height: 85vh;
   overflow: hidden;
-  min-width: 300px;
-  min-height: 250px;
 }
 
-#shop-modal {
-  top: 100px;
-  left: 100px;
-  width: 700px;
-  height: 450px;
-}
+/* Desktop positioning */
+@media (min-width: 769px) {
+  #shop-modal {
+    top: 80px;
+    left: 80px;
+    transform: none;
+    width: 700px;
+    height: 500px;
+    max-width: calc(100vw - 160px);
+    max-height: calc(100vh - 160px);
+  }
 
-#inventory-modal {
-  top: 150px;
-  right: 100px;
-  width: 200px;
-  height: 600px;
+  #inventory-modal {
+    top: 100px;
+    right: 80px;
+    left: auto;
+    transform: none;
+    width: 280px;
+    height: 550px;
+    max-width: 350px;
+    max-height: calc(100vh - 160px);
+  }
 }
 
 #shop-modal.show, #inventory-modal.show {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 #shop-content, #inventory-content {
@@ -1043,11 +1067,19 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   border: 2px solid #666;
   overflow: hidden;
-  width: 600px;
-  height: 400px;
-  top: 200px;
-  left: 50%;
-  transform: translateX(-50%);
+}
+
+/* Desktop NPC modal */
+@media (min-width: 769px) {
+  #npc-modal {
+    width: 600px;
+    height: 400px;
+    max-width: calc(100vw - 100px);
+    max-height: calc(100vh - 100px);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 
 #npc-modal.show {
@@ -1384,51 +1416,80 @@ body {
    ============================================ */
 
 @media (max-width: 768px) {
+  /* All modals centered and responsive */
   #shop-modal, #inventory-modal, #npc-modal {
     top: 50% !important;
     left: 50% !important;
     right: auto !important;
     bottom: auto !important;
-    transform: translate(-50%, -50%);
-    width: 90vw !important;
-    max-width: 500px !important;
-    max-height: 85vh !important;
+    transform: translate(-50%, -50%) !important;
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh !important;
     overflow: hidden;
+    border-radius: 8px;
+  }
+
+  /* Shop modal - vertical layout on mobile */
+  #shop-modal {
+    height: auto !important;
   }
 
   #shop-container {
     flex-direction: column;
-    max-height: calc(85vh - 100px);
+    max-height: calc(90vh - 60px);
     overflow-y: auto;
   }
 
   #shop-items-section, #transaction-section {
-    max-height: 200px;
+    max-height: none;
+    min-height: 150px;
     overflow-y: auto;
   }
 
+  /* Inventory modal - full height usage */
   #inventory-modal {
-    width: 85vw !important;
-    max-height: 80vh !important;
-  }
-
-  #npc-modal {
-    width: 90vw !important;
+    width: 92vw !important;
+    max-width: 400px !important;
     height: auto !important;
     max-height: 85vh !important;
   }
 
-  #npc-interaction-container {
-    flex-direction: column;
-    max-height: calc(85vh - 120px);
+  #inventory-items {
+    max-height: calc(85vh - 180px);
     overflow-y: auto;
+  }
+
+  /* NPC modal - flexible height */
+  #npc-modal {
+    width: 95vw !important;
+    height: auto !important;
+    max-height: 90vh !important;
+  }
+
+  #npc-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+  }
+
+  .window-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(90vh - 60px);
+  }
+
+  #npc-interaction-container {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
   }
 
   #npc-options {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid #666;
-    max-height: 120px;
+    border-bottom: 2px solid #666;
+    max-height: 150px;
     overflow-y: auto;
     flex-shrink: 0;
   }
@@ -1436,40 +1497,113 @@ body {
   #npc-dialogue {
     flex: 1;
     overflow-y: auto;
-    min-height: 100px;
+    min-height: 120px;
+    max-height: calc(90vh - 300px);
+  }
+
+  #npc-message {
+    max-height: none;
   }
 
   #npc-portrait-container {
-    max-height: 200px;
+    max-height: 180px;
     overflow: hidden;
+    flex-shrink: 0;
+    text-align: center;
   }
 
   #npc-portrait {
-    max-height: 180px;
+    max-height: 160px;
+    max-width: 100%;
     width: auto;
+    height: auto;
+    object-fit: contain;
   }
 
+  /* Window controls - larger touch targets */
   .window-header {
     cursor: default !important;
     -webkit-user-select: none;
     user-select: none;
+    flex-shrink: 0;
+    padding: 10px 12px;
   }
 
   .window-close, .close-btn {
     min-width: 50px !important;
     min-height: 50px !important;
-    font-size: 24px;
+    font-size: 28px !important;
     z-index: 10;
     position: relative;
+    padding: 0;
   }
 
   .window-controls {
     z-index: 10;
     position: relative;
   }
+
+  .window-title {
+    font-size: 16px;
+  }
 }
 
 @media (max-width: 480px) {
+  /* Very small screens - maximize space */
+  #shop-modal, #inventory-modal, #npc-modal {
+    width: 98vw !important;
+    max-width: 98vw !important;
+    border-radius: 6px;
+  }
+
+  .window-header {
+    padding: 8px 10px;
+  }
+
+  .window-title {
+    font-size: 14px;
+  }
+
+  .window-close, .close-btn {
+    min-width: 45px !important;
+    min-height: 45px !important;
+    font-size: 24px !important;
+  }
+
+  #npc-portrait-container {
+    max-height: 150px;
+  }
+
+  #npc-portrait {
+    max-height: 130px;
+  }
+
+  #npc-options {
+    max-height: 130px;
+    padding: 10px;
+  }
+
+  #npc-dialogue {
+    padding: 10px;
+    min-height: 100px;
+  }
+
+  #shop-items-section h3, #transaction-section h3 {
+    font-size: 14px;
+    padding-bottom: 8px;
+  }
+
+  #inventory-tabs {
+    gap: 2px;
+  }
+
+  .tab-button {
+    min-width: 36px;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+
+  /* Joystick controls */
   .joystick-base {
     width: 80px;
     height: 80px;
@@ -1503,49 +1637,90 @@ body {
    ============================================ */
 
 @media (max-width: 768px) and (orientation: landscape) {
+  /* Modals take up more screen width in landscape */
   #shop-modal, #inventory-modal, #npc-modal {
-    max-height: 90vh !important;
+    max-height: 95vh !important;
+    width: 90vw !important;
   }
 
   #npc-modal {
-    width: 80vw !important;
+    width: 85vw !important;
+    max-width: 900px !important;
   }
 
+  #inventory-modal {
+    width: 70vw !important;
+    max-width: 500px !important;
+  }
+
+  /* NPC modal - horizontal layout in landscape */
   #npc-interaction-container {
     flex-direction: row !important;
-    max-height: calc(90vh - 80px);
-  }
-
-  #npc-options {
-    width: 200px !important;
-    border-right: 1px solid #666 !important;
-    border-bottom: none !important;
-    max-height: none !important;
-    overflow-y: auto;
+    max-height: calc(95vh - 80px);
   }
 
   #npc-portrait-container {
-    max-height: 150px;
+    max-height: 140px;
+    flex-shrink: 0;
   }
 
   #npc-portrait {
-    max-height: 130px;
+    max-height: 120px;
   }
 
+  #npc-options {
+    width: 180px !important;
+    min-width: 180px !important;
+    border-right: 2px solid #666 !important;
+    border-bottom: none !important;
+    max-height: calc(95vh - 220px) !important;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  #npc-dialogue {
+    flex: 1;
+    max-height: calc(95vh - 220px);
+    min-height: 80px;
+  }
+
+  .window-body {
+    max-height: calc(95vh - 60px);
+  }
+
+  /* Shop modal - horizontal layout in landscape */
+  #shop-container {
+    flex-direction: row !important;
+    max-height: calc(95vh - 80px);
+    gap: 15px;
+  }
+
+  #shop-items-section, #transaction-section {
+    width: 50%;
+    max-height: calc(95vh - 100px);
+    overflow-y: auto;
+  }
+
+  /* Character info - more compact in landscape */
   #character-info {
     font-size: 10px;
     padding: 6px;
-    min-width: 160px;
+    min-width: 150px;
+    max-width: 200px;
   }
 
   .health-bar, .mana-bar, .stamina-bar {
-    height: 16px;
-    width: 140px;
+    height: 14px;
+    width: 130px;
   }
 
   .health-bar span, .mana-bar span, .stamina-bar span {
     font-size: 9px;
-    line-height: 16px;
+    line-height: 14px;
+  }
+
+  #health-regen, #mana-regen, #stamina-regen {
+    font-size: 8px;
   }
 
   #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
@@ -1553,14 +1728,19 @@ body {
     margin: 2px 0;
   }
 
-  #shop-container {
-    flex-direction: row !important;
-    max-height: calc(90vh - 80px);
+  /* Inventory tabs more compact */
+  #inventory-tabs {
+    gap: 3px;
   }
 
-  #shop-items-section, #transaction-section {
-    max-height: calc(90vh - 120px);
-    width: 50%;
+  .tab-button {
+    min-width: 38px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  #inventory-items {
+    max-height: calc(95vh - 180px);
   }
 }
 

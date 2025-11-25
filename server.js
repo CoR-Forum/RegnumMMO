@@ -599,7 +599,16 @@ io.on('connection', (socket) => {
       players[socket.id] = { character, position, lastPos: { ...position }, lastTime: Date.now(), lastDbUpdate: Date.now(), lastStaminaDbUpdate: Date.now(), lastHealthDbUpdate: Date.now(), lastManaDbUpdate: Date.now(), moving: {}, visibleNPCs: new Set(), zoom: GAME_CONFIG.VISION.INITIAL_ZOOM };
       redisClient.set(`player:${characterId}`, JSON.stringify(players[socket.id]));
       socket.characterId = characterId;
-      socket.emit('joined', { character, position, speed: GAME_CONFIG.MOVEMENT.BASE_SPEED, healthRegen: GAME_CONFIG.REGENERATION_DISPLAY.HEALTH_PER_SEC, manaRegen: GAME_CONFIG.REGENERATION_DISPLAY.MANA_PER_SEC, staminaRegen: GAME_CONFIG.REGENERATION_DISPLAY.STAMINA_IDLE_PER_SEC, zoom: GAME_CONFIG.VISION.INITIAL_ZOOM });
+      socket.emit('joined', {
+        character,
+        position,
+        regionContext: playerStateManager.getRegionContext(position),
+        speed: GAME_CONFIG.MOVEMENT.BASE_SPEED,
+        healthRegen: GAME_CONFIG.REGENERATION_DISPLAY.HEALTH_PER_SEC,
+        manaRegen: GAME_CONFIG.REGENERATION_DISPLAY.MANA_PER_SEC,
+        staminaRegen: GAME_CONFIG.REGENERATION_DISPLAY.STAMINA_IDLE_PER_SEC,
+        zoom: GAME_CONFIG.VISION.INITIAL_ZOOM
+      });
       // Broadcast to others
       socket.broadcast.emit('playerJoined', { id: socket.id, character, position });
       // Send existing players to this player

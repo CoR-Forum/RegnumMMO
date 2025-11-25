@@ -27,7 +27,7 @@ const GAME_CONFIG = {
     VIEW_DISTANCE: 1000, // Base NPC visibility distance
     INITIAL_ZOOM: 9,
     // Calculate view distance based on zoom level
-    getViewDistance: (zoom) => 80 * Math.pow(2, 9 - zoom)
+    getViewDistance: (zoom) => 100 * Math.pow(2, 9 - zoom)
   },
 
   // Regeneration rates (per 20ms tick)

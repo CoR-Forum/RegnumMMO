@@ -5,6 +5,7 @@
 
 const GAME_CONFIG = require('../constants');
 const { getVisibleNPCs } = require('../utils/npc');
+const regionData = require('../data/regions');
 
 class PlayerStateManager {
   constructor(io, npcs, redisClient) {
@@ -172,7 +173,10 @@ class PlayerStateManager {
     // Send to player
     const socket = this.io.sockets.sockets.get(socketId);
     if (socket) {
-      socket.emit('moved', newPos);
+      socket.emit('moved', {
+        position: newPos,
+        regionContext: this.getRegionContext(newPos)
+      });
     }
 
     return newPos;
@@ -248,6 +252,45 @@ class PlayerStateManager {
 
     // Sync to Redis
     await this.syncToRedis(player);
+  }
+
+  /**
+   * Determine region/island for a given position using server-side data
+   * @param {object} position - Player position { x, y }
+   * @returns {{area: string|null, island: string|null}}
+   */
+  getRegionContext(position) {
+    if (!position) return {};
+    const point = [position.x, position.y];
+    const area = (regionData.areas || []).find(region =>
+      this.isPointInPolygon(point, region.points || [])
+    );
+    const island = (regionData.islandBorders || []).find(region =>
+      this.isPointInPolygon(point, region.points || [])
+    );
+    return {
+      area: area ? area.name : null,
+      island: island ? island.name : null
+    };
+  }
+
+  /**
+   * Point-in-polygon test (ray casting)
+   * @param {number[]} point - [x, y]
+   * @param {number[][]} polygon - Array of [x, y]
+   * @returns {boolean}
+   */
+  isPointInPolygon(point, polygon = []) {
+    if (!polygon.length) return false;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][0], yi = polygon[i][1];
+      const xj = polygon[j][0], yj = polygon[j][1];
+      const intersect = ((yi > point[1]) !== (yj > point[1])) &&
+        (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
   }
 }
 

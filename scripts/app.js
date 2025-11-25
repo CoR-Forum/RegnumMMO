@@ -773,36 +773,11 @@ class RegnumMap {
     if (this.inventoryBtn) this.inventoryBtn.style.display = 'block';
   }
 
-  isPointInPolygon(point, polygon = []) {
-    if (!polygon.length) return false;
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i][0], yi = polygon[i][1];
-      const xj = polygon[j][0], yj = polygon[j][1];
-      const intersect = ((yi > point[1]) !== (yj > point[1])) &&
-        (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-  getRegionContext(position) {
-    if (!this.regionData) return {};
-    const point = [position.x, position.y];
-    const area = (this.regionData.areas || []).find(region => this.isPointInPolygon(point, region.points || []));
-    const island = (this.regionData.islandBorders || []).find(region => this.isPointInPolygon(point, region.points || []));
-    return {
-      area: area ? area.name : null,
-      island: island ? island.name : null
-    };
-  }
-
-  updateLocationDisplay(position) {
-    if (!this.locationDisplay) return;
+  updateLocationDisplay(position, regionContext = {}) {
+    if (!this.locationDisplay || !position) return;
     const coordsText = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
-    const context = this.getRegionContext(position);
     this.locationDisplay.textContent = coordsText;
-    this.updateRegionDisplay(context);
+    this.updateRegionDisplay(regionContext);
   }
 
   updateRegionDisplay(context = {}) {
@@ -895,8 +870,8 @@ class RegnumMap {
       const zoomLevel = data.zoom || this.map.getZoom();
       
       this.map.setView(this.toLatLng([data.position.x, data.position.y]), zoomLevel);
-      // Update location display with server position
-      this.updateLocationDisplay(data.position);
+      // Update location/region displays using authoritative server data
+      this.updateLocationDisplay(data.position, data.regionContext || {});
       this.updateZoomDisplay(this.map.getZoom());
       this.initMovement();
     });
@@ -917,10 +892,11 @@ class RegnumMap {
       this.updatePlayerPosition(data.id, data.position);
     });
 
-    this.socket.on('moved', (newPos) => {
-      this.updatePlayerPosition(this.socket.id, newPos);
-      // Update location display with server position
-      this.updateLocationDisplay(newPos);
+    this.socket.on('moved', (payload) => {
+      const position = payload.position || payload;
+      this.updatePlayerPosition(this.socket.id, position);
+      // Update location display with server-confirmed position and region
+      this.updateLocationDisplay(position, payload.regionContext || {});
     });
 
     this.socket.on('playerLeft', (id) => {

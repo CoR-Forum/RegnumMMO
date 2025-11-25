@@ -191,6 +191,13 @@ class RegnumMap {
         iconAnchor: [16, 16],
         popupAnchor: [0, -16]
       });
+    } else if (markerData.type === 'fort') {
+      markerIcon = L.icon({
+        iconUrl: 'https://cor-forum.de/regnum/datengrab/res/TEXTURE/63075-Icon%20door%20safe.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16]
+      });
     } else {
       // Create icon based on color for other types
       const iconUrls = {

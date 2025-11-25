@@ -141,23 +141,36 @@ class RegnumMap {
   };
 
   initUI() {
+    // Initialize ModalManager
+    this.modalManager = new ModalManager();
+
+    // Initialize StatManager
+    this.statManager = new StatManager();
+
+    // Initialize ItemRenderer
+    this.itemRenderer = new ItemRenderer();
+
     // Login elements
     this.loginBtn = document.getElementById('login-btn');
     this.loginModal = document.getElementById('login-modal');
-    this.closeModal = document.getElementById('close-modal');
     this.submitLogin = document.getElementById('submit-login');
     this.usernameInput = document.getElementById('username');
     this.passwordInput = document.getElementById('password');
     this.loginMessage = document.getElementById('login-message');
 
+    this.modalManager.register('login', {
+      modalId: 'login-modal',
+      closeButtonId: 'close-modal',
+      useClass: true,
+      playSound: false
+    });
+
     this.checkLoginStatus();
     if (this.loginBtn) this.loginBtn.addEventListener('click', () => this.handleLoginBtnClick());
-    this.setupModalCloseHandlers(this.loginModal, this.hideLoginModal, 'close-modal');
     if (this.submitLogin) this.submitLogin.addEventListener('click', () => this.handleLogin());
 
     // Character elements
     this.characterModal = document.getElementById('character-modal');
-    this.closeCharacterModal = document.getElementById('close-character-modal');
     this.characterList = document.getElementById('character-list');
     this.charName = document.getElementById('char-name-input');
     this.charRealm = document.getElementById('char-realm');
@@ -167,7 +180,13 @@ class RegnumMap {
     this.createCharacterBtn = document.getElementById('create-character');
     this.characterMessage = document.getElementById('character-message');
 
-    this.setupModalCloseHandlers(this.characterModal, this.hideCharacterModal, 'close-character-modal');
+    this.modalManager.register('character', {
+      modalId: 'character-modal',
+      closeButtonId: 'close-character-modal',
+      useClass: true,
+      playSound: false
+    });
+
     if (this.createCharacterBtn) this.createCharacterBtn.addEventListener('click', () => this.createCharacter());
     if (this.charRace) this.charRace.addEventListener('change', () => this.populateClasses());
 
@@ -191,9 +210,23 @@ class RegnumMap {
 
     if (this.switchCharacterBtn) this.switchCharacterBtn.addEventListener('click', () => this.switchCharacter());
 
+    // Realm Modal
+    this.realmModal = document.getElementById('realm-modal');
+    this.realmOptions = document.querySelectorAll('.realm-option');
+
+    this.modalManager.register('realm', {
+      modalId: 'realm-modal',
+      closeButtonId: 'close-realm-modal',
+      useClass: true,
+      playSound: false
+    });
+
+    this.realmOptions.forEach(option => {
+      if (option) option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
+    });
+
     // Shop and inventory elements
     this.shopModal = document.getElementById('shop-modal');
-    this.closeShopModal = document.getElementById('close-shop-modal');
     this.shopTitle = document.getElementById('shop-title');
     this.shopItems = document.getElementById('shop-items');
     this.transactionTabs = document.getElementById('transaction-tabs');
@@ -203,47 +236,66 @@ class RegnumMap {
     this.currentTransactionTab = 'buy';
     this.transactionList = []; // Array to hold items for transaction
 
+    this.modalManager.register('shop', {
+      modalId: 'shop-modal',
+      closeButtonId: 'close-shop-modal',
+      playSound: false,
+      onHide: () => {
+        this.currentShopNpcId = null;
+        this.clearTransactionList();
+        this.socket.emit('getInventory');
+      }
+    });
+
+    if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.confirmTransactionAction());
+    if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.clearTransactionList());
+
     // Inventory elements
     this.inventoryModal = document.getElementById('inventory-modal');
-    this.closeInventoryModal = document.getElementById('close-inventory-modal');
     this.inventoryTabs = document.getElementById('inventory-tabs');
     this.inventoryItems = document.getElementById('inventory-items');
     this.inventoryBtn = document.getElementById('inventory-btn');
     this.currentInventoryTab = 1; // Default to tab 1
-    
+
+    this.modalManager.register('inventory', {
+      modalId: 'inventory-modal',
+      closeButtonId: 'close-inventory-modal',
+      soundFile: 'open',
+      onShow: () => this.socket.emit('getInventory')
+    });
+
+    if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
+
     // NPC Interaction Modal
     this.npcModal = document.getElementById('npc-modal');
-    this.closeNpcModal = document.getElementById('close-npc-modal');
     this.npcNameTitle = document.getElementById('npc-name-title');
     this.npcOptionsList = document.getElementById('npc-options-list');
     this.npcMessage = document.getElementById('npc-message');
     this.currentNpcId = null;
     this.currentNpcData = null;
 
+    this.modalManager.register('npc', {
+      modalId: 'npc-modal',
+      closeButtonId: 'close-npc-modal',
+      playSound: false
+    });
+
     // Notification Modal
     this.notificationModal = document.getElementById('notification-modal');
-    this.closeNotificationModal = document.getElementById('close-notification-modal');
     this.notificationMessage = document.getElementById('notification-message');
     this.notificationOkBtn = document.getElementById('notification-ok-btn');
+
+    this.modalManager.register('notification', {
+      modalId: 'notification-modal',
+      closeButtonId: 'close-notification-modal',
+      playSound: false
+    });
+
+    if (this.notificationOkBtn) this.notificationOkBtn.addEventListener('click', () => this.hideNotificationModal());
 
     // Window dragging functionality
     this.draggedWindow = null;
     this.dragOffset = { x: 0, y: 0 };
-
-    this.setupModalCloseHandlers(this.shopModal, this.hideShopModal, 'close-shop-modal');
-    if (this.confirmTransaction) this.confirmTransaction.addEventListener('click', () => this.confirmTransactionAction());
-    if (this.clearTransaction) this.clearTransaction.addEventListener('click', () => this.clearTransactionList());
-    
-    // Inventory event listeners
-    this.setupModalCloseHandlers(this.inventoryModal, this.hideInventoryModal, 'close-inventory-modal');
-    if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
-    
-    // NPC modal event listeners
-    this.setupModalCloseHandlers(this.npcModal, this.hideNpcModal, 'close-npc-modal');
-    
-    // Notification modal event listeners
-    this.setupModalCloseHandlers(this.notificationModal, this.hideNotificationModal, 'close-notification-modal');
-    if (this.notificationOkBtn) this.notificationOkBtn.addEventListener('click', () => this.hideNotificationModal());
     
   // Window dragging event listeners
   this.setupWindowDragging();
@@ -318,7 +370,7 @@ class RegnumMap {
           this.switchInventoryTab(tabId);
         }
       });
-      
+
       // Add drag and drop for tabs
       const tabButtons = this.inventoryTabs.querySelectorAll('.tab-button');
       tabButtons.forEach(button => {
@@ -326,11 +378,11 @@ class RegnumMap {
           e.preventDefault();
           button.classList.add('drag-over');
         });
-        
+
         button.addEventListener('dragleave', (e) => {
           button.classList.remove('drag-over');
         });
-        
+
         button.addEventListener('drop', (e) => {
           e.preventDefault();
           button.classList.remove('drag-over');
@@ -342,16 +394,6 @@ class RegnumMap {
         });
       });
     }
-
-    // Realm selection elements
-    this.realmModal = document.getElementById('realm-modal');
-    this.closeRealmModal = document.getElementById('close-realm-modal');
-    this.realmOptions = document.querySelectorAll('.realm-option');
-
-    this.setupModalCloseHandlers(this.realmModal, this.hideRealmModal, 'close-realm-modal');
-    this.realmOptions.forEach(option => {
-      if (option) option.addEventListener('click', () => this.selectRealm(option.dataset.realm));
-    });
   }
 
   checkLoginStatus() {
@@ -448,32 +490,12 @@ class RegnumMap {
     alert('Logged out successfully.');
   }
 
-  // Generic modal close handler setup
-  setupModalCloseHandlers(modalElement, hideFunction, closeButtonId = null) {
-    if (!modalElement) return;
-
-    // Overlay click handler
-    modalElement.addEventListener('click', (e) => {
-      if (e.target === modalElement) hideFunction.call(this);
-    });
-
-    // Close button handler (if provided)
-    if (closeButtonId) {
-      const closeBtn = document.getElementById(closeButtonId);
-      if (closeBtn) closeBtn.addEventListener('click', () => hideFunction.call(this));
-    }
-  }
-
   showLoginModal() {
-    if (this.loginModal) {
-      this.loginModal.classList.add('show');
-    }
+    this.modalManager.show('login');
   }
 
   hideLoginModal() {
-    if (this.loginModal) {
-      this.loginModal.classList.remove('show');
-    }
+    this.modalManager.hide('login');
   }
 
   async handleLogin() {
@@ -566,15 +588,11 @@ class RegnumMap {
       if (realmInput) realmInput.value = '';
       if (realmText) realmText.textContent = 'Not selected';
     }
-    if (this.characterModal) {
-      this.characterModal.classList.add('show');
-    }
+    this.modalManager.show('character');
   }
 
   hideCharacterModal() {
-    if (this.characterModal) {
-      this.characterModal.classList.remove('show');
-    }
+    this.modalManager.hide('character');
   }
 
   async loadCharacters() {
@@ -619,15 +637,11 @@ class RegnumMap {
 
 
   showRealmModal() {
-    if (this.realmModal) {
-      this.realmModal.classList.add('show');
-    }
+    this.modalManager.show('realm');
   }
 
   hideRealmModal() {
-    if (this.realmModal) {
-      this.realmModal.classList.remove('show');
-    }
+    this.modalManager.hide('realm');
   }
 
   selectRealm(realm) {
@@ -831,22 +845,22 @@ class RegnumMap {
     });
 
     this.socket.on('staminaUpdate', (data) => {
-      if (this.staminaFill) this.staminaFill.style.width = `${(data.current / data.max) * 100}%`;
-      if (this.staminaText) this.staminaText.textContent = `${Math.round(data.current)}/${data.max}`;
-      if (this.staminaRegen) this.staminaRegen.textContent = `(${data.regen >= 0 ? '+' : ''}${data.regen}/s)`;
+      this.statManager.updateStamina(data.current, data.max, data.regen);
     });
 
     this.socket.on('healthUpdate', (data) => {
-      if (this.healthFill) this.healthFill.style.width = `${(data.current / data.max) * 100}%`;
-      if (this.healthText) this.healthText.textContent = `${Math.round(data.current)}/${data.max}`;
-      if (this.healthRegen) this.healthRegen.textContent = `(+${data.regen}/s)`;
-      
+      this.statManager.updateHealth(data.current, data.max, data.regen);
+
       // Update health bar on map for current player
       if (this.players[this.socket.id]) {
         this.players[this.socket.id].character.current_health = data.current;
         this.players[this.socket.id].character.max_health = data.max;
         this.updateHealthBar(this.players[this.socket.id].healthBarMarker, this.players[this.socket.id].character);
       }
+    });
+
+    this.socket.on('manaUpdate', (data) => {
+      this.statManager.updateMana(data.current, data.max, data.regen);
     });
 
     this.socket.on('openShop', (data) => {
@@ -1222,125 +1236,69 @@ class RegnumMap {
   }
 
   showShopModal(npcId, npcName) {
-    if (this.shopModal && this.shopTitle) {
+    if (this.shopTitle) {
       this.shopTitle.textContent = `${npcName}'s Shop`;
-      this.shopModal.style.display = 'block';
-      this.currentShopNpcId = npcId;
-      // Request shop items
-      this.socket.emit('getShopItems', npcId);
-      // Play open sound
-      this.playSound('open');
     }
+    this.currentShopNpcId = npcId;
+    this.socket.emit('getShopItems', npcId);
+    this.playSound('open');
+    this.modalManager.show('shop');
   }
 
   hideShopModal() {
-    if (this.shopModal) {
-      this.shopModal.style.display = 'none';
-      this.currentShopNpcId = null;
-      this.clearTransactionList();
-      
-      // Refresh inventory to show items that were in transaction
-      this.socket.emit('getInventory');
-      
-      // Play close sound
-      this.playSound('close');
-    }
+    this.playSound('close');
+    this.modalManager.hide('shop');
   }
 
   displayShopItems(npcId, items) {
     if (!this.shopItems) return;
-    this.shopItems.innerHTML = '';
-    if (items.length === 0) {
-      this.shopItems.innerHTML = '<p>No items available in this shop.</p>';
-      return;
-    }
-    
-    items.forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'shop-item';
-      itemDiv.draggable = true;
-      itemDiv.innerHTML = `
-        <div class="item-info">
-          <div class="item-name">${item.name}</div>
-          <div class="item-details">${item.type} - ${item.rarity}</div>
-        </div>
-        <div class="item-price">${item.price} gold</div>
-      `;
-      
-      // Add drag start handler
-      itemDiv.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({
-          ...item,
-          source: 'shop',
-          item_id: item.item_id,
-          price: item.price
-        }));
-        itemDiv.classList.add('dragging');
-      });
-      
-      itemDiv.addEventListener('dragend', (e) => {
-        itemDiv.classList.remove('dragging');
-      });
-      
-      this.shopItems.appendChild(itemDiv);
-    });
+    this.itemRenderer.renderShopItems(this.shopItems, items);
   }
 
   showInventoryModal() {
-    if (this.inventoryModal) {
-      this.inventoryModal.style.display = 'block';
-      // Request inventory
-      this.socket.emit('getInventory');
-      // Play open sound
-      this.playSound('open');
-    }
+    this.playSound('open');
+    this.modalManager.show('inventory');
   }
 
   hideInventoryModal() {
-    if (this.inventoryModal) {
-      this.inventoryModal.style.display = 'none';
-      // Play close sound
-      this.playSound('close');
-    }
+    this.playSound('close');
+    this.modalManager.hide('inventory');
   }
 
   // NPC Modal Methods
   showNpcModal(npcId, npcData) {
-    if (!this.npcModal || !npcData) return;
-    
+    if (!npcData) return;
+
     this.currentNpcId = npcId;
     this.currentNpcData = npcData;
-    
+
     // Set NPC name/title
     if (this.npcNameTitle) {
       this.npcNameTitle.textContent = npcData.title || 'NPC';
     }
-    
+
     // Clear previous options
     if (this.npcOptionsList) {
       this.npcOptionsList.innerHTML = '';
     }
-    
+
     // Set default message
     if (this.npcMessage) {
       this.npcMessage.textContent = npcData.message || 'Hello there! How can I help you?';
     }
-    
+
     // Add options based on NPC features
     this.addNpcOptions(npcData);
-    
-    // Show modal
-    this.npcModal.style.display = 'block';
+
+    this.modalManager.show('npc');
   }
-  
+
   hideNpcModal() {
-    if (this.npcModal) {
-      this.npcModal.style.display = 'none';
-    }
+    this.modalManager.hide('npc');
     this.currentNpcId = null;
     this.currentNpcData = null;
   }
-  
+
   addNpcOptions(npcData) {
     if (!this.npcOptionsList || !npcData) return;
     
@@ -1418,29 +1376,27 @@ class RegnumMap {
     if (!this.notificationModal || !this.notificationMessage) return;
     
     this.notificationMessage.textContent = message;
-    this.notificationModal.style.display = 'block';
+    this.modalManager.show('notification');
   }
-  
+
   hideNotificationModal() {
-    if (this.notificationModal) {
-      this.notificationModal.style.display = 'none';
-    }
+    this.modalManager.hide('notification');
   }
 
   displayInventoryItems(inventory) {
     if (!this.inventoryItems) return;
-    
-    // Clear existing items
-    this.inventoryItems.innerHTML = '';
-    
+
     // Filter items for current tab
     let tabItems = inventory.filter(item => item.tab_id === this.currentInventoryTab);
-    
+
     // Filter out items that are currently in the transaction list (sell tab)
     const transactionSellItems = this.transactionList.filter(item => item.transactionType === 'sell');
     const transactionItemIds = new Set(transactionSellItems.map(item => item.id));
     tabItems = tabItems.filter(item => !transactionItemIds.has(item.id));
-    
+
+    // Render items using ItemRenderer, but add context menu handlers
+    this.inventoryItems.innerHTML = '';
+
     if (tabItems.length === 0) {
       const emptyDiv = document.createElement('div');
       emptyDiv.className = 'inventory-item';
@@ -1448,39 +1404,16 @@ class RegnumMap {
       this.inventoryItems.appendChild(emptyDiv);
       return;
     }
-    
-    // Display items as list
+
     tabItems.forEach(item => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'inventory-item';
-      itemDiv.draggable = true;
-      itemDiv.innerHTML = `
-        <div class="item-info">
-          <div class="item-name">${item.name}</div>
-          <div class="item-details">${item.type} - ${item.rarity}</div>
-        </div>
-        <div class="item-quantity">${item.stackable ? 'x' + item.quantity : ''}</div>
-      `;
-      
-      // Add drag start handler
-      itemDiv.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({
-          ...item,
-          source: 'inventory'
-        }));
-        itemDiv.classList.add('dragging');
-      });
-      
-      itemDiv.addEventListener('dragend', (e) => {
-        itemDiv.classList.remove('dragging');
-      });
-      
+      const itemDiv = this.itemRenderer.renderInventoryItem(item);
+
       // Add right-click handler for item actions
       itemDiv.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         this.showItemContextMenu(e, item);
       });
-      
+
       this.inventoryItems.appendChild(itemDiv);
     });
   }

@@ -1,15 +1,36 @@
+:root {
+  --regnum-dark-bg: #0f0f15;
+  --regnum-bg: #1a1a24;
+  --regnum-panel: #252530;
+  --regnum-border: #3d3d4f;
+  --regnum-gold: #ffd700;
+  --regnum-health: #dc3545;
+  --regnum-mana: #4a90e2;
+  --regnum-stamina: #f0ad4e;
+  --regnum-syrtis: #00aa00;
+  --regnum-ignis: #cc0000;
+  --regnum-alsius: #0066cc;
+  --regnum-text: #e8e8f0;
+  --regnum-text-dim: #9999aa;
+}
+
 html,
 body {
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  position: fixed;
+  width: 100%;
 }
 
 body {
-  background: #1a1a1a;
-  color: #fff;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--regnum-dark-bg);
+  color: var(--regnum-text);
+  font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
 }
 
 #map {
@@ -34,16 +55,37 @@ body {
   top: 10px;
   right: 10px;
   z-index: 1000;
-  background: #333;
-  color: #fff;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
+  background: linear-gradient(135deg, var(--regnum-panel) 0%, var(--regnum-bg) 100%);
+  color: var(--regnum-gold);
+  border: 2px solid var(--regnum-border);
+  padding: 10px 20px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+  font-size: 14px;
 }
 
 #login-btn:hover {
-  background: #555;
+  background: linear-gradient(135deg, var(--regnum-border) 0%, var(--regnum-panel) 100%);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+#login-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 768px) {
+  #login-btn {
+    top: 8px;
+    right: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
 }
 
 #login-modal {
@@ -97,12 +139,36 @@ body {
   position: absolute;
   top: 10px;
   left: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  padding: 10px;
-  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(37, 37, 48, 0.95) 0%, rgba(26, 26, 36, 0.95) 100%);
+  color: var(--regnum-text);
+  padding: 12px;
+  border-radius: 10px;
   z-index: 1000;
   font-size: 12px;
+  border: 2px solid var(--regnum-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  min-width: 220px;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  #character-info {
+    top: 8px;
+    left: 8px;
+    padding: 8px;
+    font-size: 11px;
+    min-width: 180px;
+    max-width: calc(100vw - 120px);
+  }
+}
+
+@media (max-width: 480px) {
+  #character-info {
+    font-size: 10px;
+    min-width: 160px;
+    padding: 6px;
+  }
 }
 
 #character-info button {
@@ -128,50 +194,110 @@ body {
 
 .health-bar, .mana-bar, .stamina-bar {
   width: 200px;
-  height: 20px;
-  background: #333;
-  margin: 5px 0;
+  height: 22px;
+  background: var(--regnum-dark-bg);
+  margin: 6px 0;
   position: relative;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .health-bar, .mana-bar, .stamina-bar {
+    width: 160px;
+    height: 18px;
+    margin: 4px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .health-bar, .mana-bar, .stamina-bar {
+    width: 140px;
+    height: 16px;
+  }
 }
 
 .health-bar .bar-fill {
-  background: #e74c3c;
+  background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
   height: 100%;
-  transition: width 0.3s;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.6);
 }
 
 .mana-bar .bar-fill {
-  background: #3498db;
+  background: linear-gradient(180deg, var(--regnum-mana) 0%, #357abd 100%);
   height: 100%;
-  transition: width 0.3s;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(74, 144, 226, 0.6);
 }
 
 .stamina-bar .bar-fill {
-  background: #f1c40f;
+  background: linear-gradient(180deg, var(--regnum-stamina) 0%, #d49a3d 100%);
   height: 100%;
-  transition: width 0.3s;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(240, 173, 78, 0.6);
 }
 
 .health-bar span, .mana-bar span, .stamina-bar span {
   position: absolute;
   top: 0;
   left: 5px;
-  line-height: 20px;
+  line-height: 22px;
   font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9);
+  font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .health-bar span, .mana-bar span, .stamina-bar span {
+    line-height: 18px;
+    font-size: 10px;
+    left: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .health-bar span, .mana-bar span, .stamina-bar span {
+    line-height: 16px;
+    font-size: 9px;
+  }
 }
 
 #health-regen, #mana-regen, #stamina-regen {
   left: auto;
   right: 5px;
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  #health-regen, #mana-regen, #stamina-regen {
+    font-size: 9px;
+    right: 4px;
+  }
 }
 
 #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
   margin: 5px 0;
   font-size: 12px;
-  color: #ffd700;
+  color: var(--regnum-gold);
   font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 768px) {
+  #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
+    font-size: 10px;
+    margin: 3px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
+    font-size: 9px;
+  }
 }
 
 #character-modal {
@@ -1018,6 +1144,9 @@ body {
   font-size: 12px !important;
   white-space: nowrap !important;
   line-height: 1.2 !important;
+  color: #ffffff !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+  font-weight: bold !important;
 }
 
 /* NPC marker styles */
@@ -1143,10 +1272,297 @@ body {
   text-align: left;
 }
 
-/* Compact tooltip (text only, used when no image available) */
+/* Additional compact tooltip styling (NPC fallback) */
 .compact-tooltip {
   background: rgba(0, 0, 0, 0.8) !important;
   border: 1px solid #666 !important;
-  padding: 4px 8px !important;
-  font-size: 12px !important;
+}
+
+/* ============================================
+   MOBILE TOUCH CONTROLS
+   ============================================ */
+
+#mobile-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  pointer-events: none;
+  display: none;
+}
+
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  #mobile-controls {
+    display: block !important;
+  }
+}
+
+#movement-joystick {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  pointer-events: auto;
+}
+
+.joystick-base {
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(37, 37, 48, 0.8) 0%, rgba(26, 26, 36, 0.9) 100%);
+  border: 3px solid var(--regnum-border);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 2px 8px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.joystick-stick {
+  width: 45px;
+  height: 45px;
+  background: linear-gradient(135deg, var(--regnum-gold) 0%, #d4af37 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 3px rgba(255, 255, 255, 0.3);
+  transition: all 0.1s ease;
+}
+
+.joystick-label {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--regnum-text);
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+#action-buttons {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.action-btn {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--regnum-panel) 0%, var(--regnum-bg) 100%);
+  border: 3px solid var(--regnum-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, var(--regnum-bg) 0%, var(--regnum-dark-bg) 100%);
+}
+
+.action-btn span {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+/* ============================================
+   MOBILE-OPTIMIZED MODALS
+   ============================================ */
+
+@media (max-width: 768px) {
+  #shop-modal, #inventory-modal, #npc-modal {
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%);
+    width: 90vw !important;
+    max-width: 500px !important;
+    max-height: 80vh !important;
+  }
+
+  #shop-container {
+    flex-direction: column;
+    max-height: none;
+  }
+
+  #shop-items-section, #transaction-section {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  #inventory-modal {
+    width: 85vw !important;
+    max-height: 70vh !important;
+  }
+
+  #npc-modal {
+    width: 90vw !important;
+    height: auto !important;
+    max-height: 75vh !important;
+  }
+
+  #npc-interaction-container {
+    flex-direction: column;
+  }
+
+  #npc-options {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #666;
+    max-height: 150px;
+  }
+
+  .window-header {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .joystick-base {
+    width: 80px;
+    height: 80px;
+  }
+
+  .joystick-stick {
+    width: 35px;
+    height: 35px;
+  }
+
+  .action-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  #movement-joystick {
+    bottom: 15px;
+    left: 15px;
+  }
+
+  #action-buttons {
+    bottom: 15px;
+    right: 15px;
+    gap: 8px;
+  }
+}
+
+/* ============================================
+   REALM SELECTION MOBILE OPTIMIZATION
+   ============================================ */
+
+@media (max-width: 768px) {
+  #realm-selection {
+    width: 90vw !important;
+    max-width: 500px;
+  }
+
+  #realm-options {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .realm-option {
+    width: 100% !important;
+    padding: 15px;
+  }
+
+  #character-form {
+    width: 90vw !important;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  #login-form {
+    width: 90vw !important;
+    max-width: 400px;
+  }
+}
+
+/* ============================================
+   IMPROVED BUTTON STYLING
+   ============================================ */
+
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.window-close, .close-btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  button {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .tab-button {
+    min-width: 44px;
+    padding: 10px;
+  }
+}
+
+/* ============================================
+   INVENTORY BUTTON MOBILE
+   ============================================ */
+
+@media (max-width: 768px) {
+  #inventory-btn {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   PREVENT TEXT SELECTION ON MOBILE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .window-header, .tab-button, .action-btn, #login-btn {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ============================================
+   SAFE AREA INSETS FOR NOTCHED DEVICES
+   ============================================ */
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  #character-info {
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+  }
+
+  #login-btn {
+    top: calc(10px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
+  }
+
+  #mobile-controls {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

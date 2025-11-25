@@ -590,6 +590,11 @@ class RegnumMap {
       this.socket.disconnect();
       this.socket = null;
     }
+    // Destroy mobile controls
+    if (this.mobileControls) {
+      this.mobileControls.destroy();
+      this.mobileControls = null;
+    }
     // Stop footstep sounds
     this.stopFootstepSounds();
     // Clear players
@@ -884,6 +889,11 @@ class RegnumMap {
 
     // Update transactionManager with socket instance
     this.transactionManager.socket = this.socket;
+
+    // Initialize mobile controls if on mobile device
+    if (typeof MobileControlsManager !== 'undefined') {
+      this.mobileControls = new MobileControlsManager(this.socket);
+    }
 
     this.socket.on('connect', () => {
       console.log('Connected to server');

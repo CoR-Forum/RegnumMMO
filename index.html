@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <title>RegnumMMO - Tech Preview</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="A browser-based, mobile-friendly clone of the popular MMORPG 'Champions of Regnum', featuring interactive maps, character tracking, and real-time updates.">
   <meta name="keywords" content="Regnum, Online, Maps, Champions of Regnum, Regnum Crafting, Regnum bosses, Regnum NPCs">
   <link rel="icon" href="images/favicon.ico" type="image/x-icon">
@@ -18,6 +21,7 @@
   <script src="scripts/utils/DragDropManager.js" defer></script>
   <script src="scripts/utils/TransactionManager.js" defer></script>
   <script src="scripts/utils/PositionManager.js" defer></script>
+  <script src="scripts/utils/MobileControlsManager.js" defer></script>
   <script src="scripts/app.js" defer></script>
 </head>
 <body>
@@ -181,6 +185,24 @@
 
   <!-- Admin Panel - Removed -->
   <button id="inventory-btn" style="display: none;">Inventory</button>
+
+  <!-- Mobile Touch Controls -->
+  <div id="mobile-controls" style="display: none;">
+    <div id="movement-joystick">
+      <div class="joystick-base">
+        <div class="joystick-stick"></div>
+      </div>
+      <div class="joystick-label">Move</div>
+    </div>
+    <div id="action-buttons">
+      <button class="action-btn" id="mobile-inventory-btn">
+        <span>📦</span>
+      </button>
+      <button class="action-btn" id="mobile-interact-btn">
+        <span>💬</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Notification Modal -->
   <div id="notification-modal" class="modal">

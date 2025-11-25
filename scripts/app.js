@@ -15,7 +15,7 @@ class RegnumMap {
     normalUserMaxZoom: 9,
     normalUserMinZoom: 7,
     normalUserInitialZoom: 9, // Most zoomed in as default
-    tilePath: 'https://maps.cor-forum.de/gamemap-tiles/{z}/{x}/{y}.png',
+    tilePath: 'https://maps.cor-forum.de/gamemap-tiles/{z}/{x}/{y}.png?=v1',
     attribution: `
       Contribute to RegnumMMO on <a href="https://github.com/CoR-Forum/RegnumMMO" target="_blank">GitHub</a>
     `.trim()
@@ -280,6 +280,7 @@ class RegnumMap {
     this.staminaText = document.getElementById('stamina-text');
     this.staminaRegen = document.getElementById('stamina-regen');
     this.locationDisplay = document.getElementById('location-display');
+    this.regionDisplay = document.getElementById('region-display');
     this.zoomDisplay = document.getElementById('zoom-display');
     this.latencyDisplay = document.getElementById('latency-display');
     this.goldDisplay = document.getElementById('gold-display');
@@ -800,10 +801,16 @@ class RegnumMap {
     if (!this.locationDisplay) return;
     const coordsText = `Location: X: ${position.x.toFixed(2)}, Y: ${position.y.toFixed(2)}`;
     const context = this.getRegionContext(position);
+    this.locationDisplay.textContent = coordsText;
+    this.updateRegionDisplay(context);
+  }
+
+  updateRegionDisplay(context = {}) {
+    if (!this.regionDisplay) return;
     const labels = [];
     if (context.area) labels.push(context.area);
     if (context.island) labels.push(context.island);
-    this.locationDisplay.textContent = labels.length ? `${coordsText} (${labels.join(' — ')})` : coordsText;
+    this.regionDisplay.textContent = labels.length ? `Region: ${labels.join(' — ')}` : 'Region: Unknown';
   }
 
   updateZoomDisplay(zoom) {

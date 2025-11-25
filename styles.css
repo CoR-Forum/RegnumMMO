@@ -161,7 +161,7 @@ body {
   right: 5px;
 }
 
-#gold-display, #location-display, #zoom-display, #latency-display {
+#gold-display, #location-display, #region-display, #zoom-display, #latency-display {
   margin: 5px 0;
   font-size: 12px;
   color: #ffd700;

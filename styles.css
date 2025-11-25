@@ -1128,6 +1128,7 @@ body {
 
 .npc-tooltip-health-fill {
   height: 100%;
+  background: rgb(0, 255, 0);
   transition: width 0.3s ease, background 0.3s ease;
 }
 

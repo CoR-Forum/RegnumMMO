@@ -1210,7 +1210,7 @@ class RegnumMap {
           <div class="npc-tooltip-name">${npc.name}</div>
           <div class="npc-tooltip-title">${displayTitle} - Level ${npc.level}</div>
           <div class="npc-tooltip-health-bar">
-            <div class="npc-tooltip-health-fill" style="width: ${healthPercent}%; background: ${healthColor};"></div>
+            <div class="npc-tooltip-health-fill" style="width: ${healthPercent}%; background: ${healthColor} !important;"></div>
           </div>
         </div>
       </div>

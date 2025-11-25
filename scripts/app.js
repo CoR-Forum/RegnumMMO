@@ -1183,14 +1183,36 @@ class RegnumMap {
     // Create tooltip with image preview on hover
     const imageName = npc.name.replace(/ /g, '_');
     const imageUrl = `/assets/npc_images/${encodeURIComponent(imageName)}.jpg`;
+    const displayTitle = npc.title || 'NPC';
+    const healthPercent = ((npc.current_health || npc.max_health) / npc.max_health) * 100;
 
-    // Create tooltip content with image
+    // Calculate health bar color based on percentage (green -> yellow -> red)
+    const getHealthColor = (percent) => {
+      if (percent > 50) {
+        // Green to yellow (100% -> 50%)
+        const r = Math.floor(255 * (100 - percent) / 50);
+        return `rgb(${r}, 255, 0)`;
+      } else {
+        // Yellow to red (50% -> 0%)
+        const g = Math.floor(255 * percent / 50);
+        return `rgb(255, ${g}, 0)`;
+      }
+    };
+    const healthColor = getHealthColor(healthPercent);
+
+    // Create tooltip content with image, name, profession, level, and health bar
     const tooltipContent = `
       <div class="npc-tooltip-content">
         <img class="npc-portrait-hover" src="${imageUrl}" alt="${npc.name}"
-             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+             onerror="this.style.display='none';"
              onload="this.style.display='block';">
-        <div class="npc-tooltip-name" style="display: none;">${npc.name} (${npc.level})</div>
+        <div class="npc-tooltip-info">
+          <div class="npc-tooltip-name">${npc.name}</div>
+          <div class="npc-tooltip-title">${displayTitle} - Level ${npc.level}</div>
+          <div class="npc-tooltip-health-bar">
+            <div class="npc-tooltip-health-fill" style="width: ${healthPercent}%; background: ${healthColor};"></div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -1411,9 +1433,10 @@ class RegnumMap {
     this.currentNpcId = npcId;
     this.currentNpcData = npcData;
 
-    // Set NPC name/title
+    // Set NPC name/title with format: "Name (Profession) - Level X"
     if (this.npcNameTitle) {
-      this.npcNameTitle.textContent = npcData.title || 'NPC';
+      const displayTitle = npcData.title || 'NPC';
+      this.npcNameTitle.textContent = `${npcData.name} (${displayTitle}) - Level ${npcData.level}`;
     }
 
     // Load NPC portrait image

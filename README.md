@@ -175,8 +175,10 @@ A fully-featured browser-based MMORPG inspired by Regnum Online, featuring real-
 7. On disconnect: immediate Redis flush to MySQL
 
 ### Key Design Patterns
-- **MVC-inspired structure** - Routes, controllers, and data models separated
+- **Modular architecture** - Utilities and managers separated for maintainability
 - **Event-driven architecture** - Socket.IO for real-time events
+- **Manager pattern** - PlayerStateManager, ErrorHandler for game systems
+- **Utility pattern** - Reusable database, auth, and NPC utilities
 - **Middleware pattern** - Authentication, session validation, CORS
 - **Repository pattern** - Database queries abstracted through promises
 - **Observer pattern** - Socket.IO event broadcasting
@@ -394,14 +396,22 @@ Database automatically initializes on first run with:
 ### Project Structure
 ```
 Regnum.Online/
-├── server.js              # Main backend server (1,342 lines)
+├── server.js              # Main backend server (1,017 lines)
+├── constants.js           # Game configuration constants
+├── utils/                 # Shared utility modules
+│   ├── auth.js           # Authentication manager
+│   ├── database.js       # Database utilities
+│   └── npc.js            # NPC interaction handlers
+├── managers/              # Game system managers
+│   ├── PlayerStateManager.js  # Player state updates
+│   └── ErrorHandler.js        # Error handling utilities
 ├── index.html             # Frontend HTML entry point
 ├── styles.css             # Frontend styling
 ├── scripts/
-│   ├── app.js            # Frontend JavaScript (1,750 lines)
+│   ├── app.js            # Frontend JavaScript (1,885 lines)
 │   └── rastercoords.js   # Leaflet coordinate transformation
 ├── data/
-│   └── gameData.js       # Game configuration (realms, races, classes, NPCs, items)
+│   └── gameData.js       # Game data (realms, races, classes, NPCs, items)
 ├── MapGenerator/         # Map tile generation tools
 │   ├── generate-tiles.sh
 │   ├── gdal2tiles.py
@@ -504,10 +514,14 @@ We welcome contributions! To get started:
 
 ### Development Guidelines
 - Follow existing code style and patterns
+- Use utility modules in `utils/` for shared functionality
+- Use manager classes in `managers/` for game systems
+- Centralize constants in `constants.js`
 - Add comments for complex logic
 - Test multiplayer interactions thoroughly
 - Update documentation for new features
 - Ensure Docker build succeeds
+- Run `node --check` to validate syntax before committing
 
 ## License
 

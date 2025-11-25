@@ -273,6 +273,9 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname)));
 
+// Serve assets folder
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
 // Function to initialize database
 async function initDatabase() {
   const tables = [

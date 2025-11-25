@@ -1152,8 +1152,8 @@ class RegnumMap {
     else if (npc.realm === 'Alsius') realmColor = '#0088ff'; // blue
     else if (npc.realm === 'Ignis') realmColor = '#ff0000'; // red
     
-    const iconSize = [6, 6];
-    const iconAnchor = [3, 3];
+    const iconSize = [16, 16];
+    const iconAnchor = [8, 8];
     
     const npcIcon = L.divIcon({
       className: 'npc-marker-icon',

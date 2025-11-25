@@ -1019,6 +1019,9 @@ body {
   background: transparent !important;
   border: none !important;
   pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .npc-circle {

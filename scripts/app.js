@@ -198,7 +198,7 @@ class RegnumMap {
     const marker5 = L.marker(this.toLatLng([2451.1330566406, 3987.1953125])).addTo(this.map);
     marker5.bindPopup("2451.1330566406, 3987.1953125");
 
-    const marker6 = L.marker(this.toLatLng([6126, 6190])).addTo(this.map);
+    const marker6 = L.marker(this.toLatLng([6144, 6144])).addTo(this.map);
     marker6.bindPopup("6144, 6144");
 
     const marker7 = L.marker(this.toLatLng([8862, 8879])).addTo(this.map);

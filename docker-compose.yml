@@ -39,6 +39,8 @@ services:
       - "3223:3223"
     env_file:
       - .env
+    volumes:
+      - ./assets:/app/assets
     restart: unless-stopped
     depends_on:
       - redis

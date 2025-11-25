@@ -1750,21 +1750,37 @@ class RegnumMap {
 
   setupWindowDragging() {
     const windows = [this.shopModal, this.inventoryModal, this.npcModal, this.notificationModal];
-    
+
+    // Check if device is mobile - disable dragging on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || (window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
+
+    if (isMobile) {
+      // On mobile, don't enable dragging at all
+      return;
+    }
+
     windows.forEach(window => {
       if (!window) return;
-      
+
       const header = window.querySelector('.window-header');
       if (!header) return;
-      
+
       header.addEventListener('mousedown', (e) => {
+        // Don't start dragging if clicking on a button or close control
+        if (e.target.closest('.window-close') ||
+            e.target.closest('.close-btn') ||
+            e.target.closest('button')) {
+          return;
+        }
+
         this.draggedWindow = window;
         const rect = window.getBoundingClientRect();
-        
+
         // Calculate drag offset BEFORE changing positioning
         this.dragOffset.x = e.clientX - rect.left;
         this.dragOffset.y = e.clientY - rect.top;
-        
+
         // Ensure the window has absolute positioning
         if (window.style.position !== 'absolute' && window.style.position !== 'fixed') {
           window.style.position = 'absolute';
@@ -1773,13 +1789,13 @@ class RegnumMap {
           window.style.top = rect.top + 'px';
           window.style.transform = 'none';
         }
-        
+
         // Bring window to front
         window.style.zIndex = '1004';
-        
+
         document.addEventListener('mousemove', this.handleWindowDrag);
         document.addEventListener('mouseup', this.handleWindowDragEnd);
-        
+
         e.preventDefault();
       });
     });

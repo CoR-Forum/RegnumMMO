@@ -1392,12 +1392,14 @@ body {
     transform: translate(-50%, -50%);
     width: 90vw !important;
     max-width: 500px !important;
-    max-height: 80vh !important;
+    max-height: 85vh !important;
+    overflow: hidden;
   }
 
   #shop-container {
     flex-direction: column;
-    max-height: none;
+    max-height: calc(85vh - 100px);
+    overflow-y: auto;
   }
 
   #shop-items-section, #transaction-section {
@@ -1407,30 +1409,63 @@ body {
 
   #inventory-modal {
     width: 85vw !important;
-    max-height: 70vh !important;
+    max-height: 80vh !important;
   }
 
   #npc-modal {
     width: 90vw !important;
     height: auto !important;
-    max-height: 75vh !important;
+    max-height: 85vh !important;
   }
 
   #npc-interaction-container {
     flex-direction: column;
+    max-height: calc(85vh - 120px);
+    overflow-y: auto;
   }
 
   #npc-options {
     width: 100%;
     border-right: none;
     border-bottom: 1px solid #666;
-    max-height: 150px;
+    max-height: 120px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  #npc-dialogue {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 100px;
+  }
+
+  #npc-portrait-container {
+    max-height: 200px;
+    overflow: hidden;
+  }
+
+  #npc-portrait {
+    max-height: 180px;
+    width: auto;
   }
 
   .window-header {
-    touch-action: none;
+    cursor: default !important;
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  .window-close, .close-btn {
+    min-width: 50px !important;
+    min-height: 50px !important;
+    font-size: 24px;
+    z-index: 10;
+    position: relative;
+  }
+
+  .window-controls {
+    z-index: 10;
+    position: relative;
   }
 }
 
@@ -1464,6 +1499,72 @@ body {
 }
 
 /* ============================================
+   LANDSCAPE MODE OPTIMIZATIONS
+   ============================================ */
+
+@media (max-width: 768px) and (orientation: landscape) {
+  #shop-modal, #inventory-modal, #npc-modal {
+    max-height: 90vh !important;
+  }
+
+  #npc-modal {
+    width: 80vw !important;
+  }
+
+  #npc-interaction-container {
+    flex-direction: row !important;
+    max-height: calc(90vh - 80px);
+  }
+
+  #npc-options {
+    width: 200px !important;
+    border-right: 1px solid #666 !important;
+    border-bottom: none !important;
+    max-height: none !important;
+    overflow-y: auto;
+  }
+
+  #npc-portrait-container {
+    max-height: 150px;
+  }
+
+  #npc-portrait {
+    max-height: 130px;
+  }
+
+  #character-info {
+    font-size: 10px;
+    padding: 6px;
+    min-width: 160px;
+  }
+
+  .health-bar, .mana-bar, .stamina-bar {
+    height: 16px;
+    width: 140px;
+  }
+
+  .health-bar span, .mana-bar span, .stamina-bar span {
+    font-size: 9px;
+    line-height: 16px;
+  }
+
+  #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
+    font-size: 9px;
+    margin: 2px 0;
+  }
+
+  #shop-container {
+    flex-direction: row !important;
+    max-height: calc(90vh - 80px);
+  }
+
+  #shop-items-section, #transaction-section {
+    max-height: calc(90vh - 120px);
+    width: 50%;
+  }
+}
+
+/* ============================================
    REALM SELECTION MOBILE OPTIMIZATION
    ============================================ */
 
@@ -1493,6 +1594,22 @@ body {
   #login-form {
     width: 90vw !important;
     max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  #realm-selection, #character-form, #login-form {
+    max-height: 90vh !important;
+  }
+
+  #realm-options {
+    flex-direction: row !important;
+    justify-content: space-around;
+  }
+
+  .realm-option {
+    width: 30% !important;
+    padding: 10px;
   }
 }
 

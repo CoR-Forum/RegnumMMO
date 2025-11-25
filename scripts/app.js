@@ -1156,11 +1156,11 @@ class RegnumMap {
   addNPC(id, npc) {
     const latLng = this.toLatLng([npc.position.x, npc.position.y]);
     
-    // Realm-specific colors for NPC circles
-    let realmColor = '#888888'; // default gray
-    if (npc.realm === 'Syrtis') realmColor = '#00ff00'; // green
-    else if (npc.realm === 'Alsius') realmColor = '#0088ff'; // blue
-    else if (npc.realm === 'Ignis') realmColor = '#ff0000'; // red
+    // Realm-specific colors for NPC circles (darker, more muted)
+    let realmColor = '#666666'; // default gray (darker)
+    if (npc.realm === 'Syrtis') realmColor = '#008800'; // darker green
+    else if (npc.realm === 'Alsius') realmColor = '#005599'; // darker blue
+    else if (npc.realm === 'Ignis') realmColor = '#aa0000'; // darker red
     
     const iconSize = [16, 16];
     const iconAnchor = [8, 8];

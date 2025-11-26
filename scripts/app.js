@@ -73,6 +73,7 @@ class RegnumMap {
       crs: L.CRS.Simple,
       minZoom: mapMinZoom,
       maxZoom: mapMaxZoom,
+      zoomControl: false,
       dragging: isAdmin, // Only allow dragging for admin users
       scrollWheelZoom: true, // Allow scroll wheel zoom for all users
       doubleClickZoom: true, // Allow double-click zoom for all users

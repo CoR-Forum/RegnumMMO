@@ -26,29 +26,43 @@
 </head>
 <body>
   <div id="map"></div>
-  <button id="login-btn">Login</button>
-  <div id="character-info" style="display: none;">
-    <div id="char-name">Character Name</div>
-    <div class="health-bar">
-      <div class="bar-fill" id="health-fill"></div>
-      <span id="health-text">100/100</span>
-      <span id="health-regen">(+0.25/s)</span>
+  <div id="hud-layer">
+    <div id="hud-top">
+      <div id="character-info" style="display: none;">
+        <div class="character-header">
+          <div id="char-name">Character Name</div>
+        </div>
+        <div class="stat-bars">
+          <div class="health-bar">
+            <div class="bar-fill" id="health-fill"></div>
+            <span id="health-text">100/100</span>
+            <span id="health-regen">(+0.25/s)</span>
+          </div>
+          <div class="mana-bar">
+            <div class="bar-fill" id="mana-fill"></div>
+            <span id="mana-text">100/100</span>
+            <span id="mana-regen">(+0.25/s)</span>
+          </div>
+          <div class="stamina-bar">
+            <div class="bar-fill" id="stamina-fill"></div>
+            <span id="stamina-text">100/100</span>
+            <span id="stamina-regen">(+0.5/s)</span>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div id="gold-display" class="info-chip">Gold: 0</div>
+          <div id="location-display" class="info-chip">Location: X: 0, Y: 0</div>
+          <div id="region-display" class="info-chip">Region: Unknown</div>
+          <div id="zoom-display" class="info-chip">Zoom: 3</div>
+          <div id="latency-display" class="info-chip">Latency: -- ms</div>
+        </div>
+      </div>
+      <div class="hud-actions">
+        <button id="inventory-btn" aria-label="Open Inventory">Inventory</button>
+        <button id="settings-btn" aria-label="Settings"></button>
+        <button id="login-btn">Login</button>
+      </div>
     </div>
-    <div class="mana-bar">
-      <div class="bar-fill" id="mana-fill"></div>
-      <span id="mana-text">100/100</span>
-      <span id="mana-regen">(+0.25/s)</span>
-    </div>
-    <div class="stamina-bar">
-      <div class="bar-fill" id="stamina-fill"></div>
-      <span id="stamina-text">100/100</span>
-      <span id="stamina-regen">(+0.5/s)</span>
-    </div>
-    <div id="gold-display">Gold: 0</div>
-    <div id="location-display">Location: X: 0, Y: 0</div>
-    <div id="region-display">Region: Unknown</div>
-    <div id="zoom-display">Zoom: 3</div>
-    <div id="latency-display">Latency: -- ms</div>
   </div>
   <div id="login-modal">
     <div id="login-form">
@@ -182,9 +196,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Admin Panel - Removed -->
-  <button id="inventory-btn" style="display: none;">Inventory</button>
 
   <!-- Mobile Touch Controls -->
   <div id="mobile-controls" style="display: none;">

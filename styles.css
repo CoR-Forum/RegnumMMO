@@ -36,8 +36,86 @@ body {
 #map {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   background: #1a1a1a;
+}
+
+#hud-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+#hud-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+  max-width: 520px;
+  pointer-events: none;
+  min-width: 0;
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.hud-actions button {
+  flex: 0 0 auto;
+}
+
+.character-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.stat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: stretch;
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+}
+
+@media (min-width: 769px) {
+  #hud-layer {
+    padding: 16px;
+  }
+
+  #hud-top {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    width: auto;
+    max-width: 740px;
+  }
 }
 
 .region-label {
@@ -51,21 +129,24 @@ body {
 }
 
 #login-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
+  position: relative;
+  align-self: flex-end;
+  pointer-events: auto;
   background: linear-gradient(135deg, var(--regnum-panel) 0%, var(--regnum-bg) 100%);
   color: var(--regnum-gold);
   border: 2px solid var(--regnum-border);
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 9px;
   cursor: pointer;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   transition: all 0.3s ease;
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.25px;
 }
 
 #login-btn:hover {
@@ -81,10 +162,8 @@ body {
 
 @media (max-width: 768px) {
   #login-btn {
-    top: 8px;
-    right: 8px;
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
   }
 }
 
@@ -109,8 +188,12 @@ body {
   background: #333;
   padding: 20px;
   border-radius: 10px;
-  width: 300px;
+  width: 92vw;
+  max-width: 420px;
   text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 12px;
 }
 
 #login-form input {
@@ -136,38 +219,43 @@ body {
 }
 
 #character-info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
+  position: relative;
   background: linear-gradient(135deg, rgba(37, 37, 48, 0.95) 0%, rgba(26, 26, 36, 0.95) 100%);
   color: var(--regnum-text);
-  padding: 12px;
+  padding: 10px;
   border-radius: 10px;
-  z-index: 1000;
+  z-index: 1;
   font-size: 12px;
-  border: 2px solid var(--regnum-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--regnum-border);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
-  min-width: 220px;
+  width: 100%;
+  max-width: 480px;
+  min-width: 0;
   transition: all 0.3s ease;
+  display: grid;
+  gap: 8px;
+  pointer-events: auto;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   #character-info {
-    top: 8px;
-    left: 8px;
-    padding: 8px;
+    padding: 10px;
     font-size: 11px;
-    min-width: 180px;
-    max-width: calc(100vw - 120px);
   }
 }
 
 @media (max-width: 480px) {
   #character-info {
     font-size: 10px;
-    min-width: 160px;
-    padding: 6px;
+    padding: 9px;
+  }
+}
+
+@media (min-width: 769px) {
+  #character-info {
+    max-width: 380px;
   }
 }
 
@@ -188,15 +276,25 @@ body {
 
 #char-name {
   color: #fff !important;
-  font-weight: bold;
-  margin-bottom: 5px;
+  font-weight: 800;
+  margin-bottom: 2px;
+  letter-spacing: 0.2px;
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 769px) {
+  #char-name {
+    font-size: 15px;
+  }
 }
 
 .health-bar, .mana-bar, .stamina-bar {
-  width: 200px;
-  height: 22px;
+  width: 100%;
+  min-width: 0;
+  height: 18px;
   background: var(--regnum-dark-bg);
-  margin: 6px 0;
+  margin: 4px 0;
   position: relative;
   border-radius: 4px;
   overflow: hidden;
@@ -206,16 +304,19 @@ body {
 
 @media (max-width: 768px) {
   .health-bar, .mana-bar, .stamina-bar {
-    width: 160px;
-    height: 18px;
-    margin: 4px 0;
+    height: 16px;
   }
 }
 
 @media (max-width: 480px) {
   .health-bar, .mana-bar, .stamina-bar {
-    width: 140px;
     height: 16px;
+  }
+}
+
+@media (min-width: 769px) {
+  .health-bar, .mana-bar, .stamina-bar {
+    height: 20px;
   }
 }
 
@@ -279,23 +380,47 @@ body {
   }
 }
 
-#gold-display, #location-display, #region-display, #zoom-display, #latency-display {
-  margin: 5px 0;
-  font-size: 12px;
+.info-chip {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--regnum-text);
+  font-weight: 600;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+#gold-display, #zoom-display {
   color: var(--regnum-gold);
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+#gold-display::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  background: url("https://cor-forum.de/regnum/datengrab/res/TEXTURE/85775-Icon%20currency%20gold.png") center/contain no-repeat;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
-  #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
+  .info-chip {
     font-size: 10px;
-    margin: 3px 0;
+    padding: 6px;
+    min-height: 26px;
   }
 }
 
 @media (max-width: 480px) {
-  #gold-display, #location-display, #region-display, #zoom-display, #latency-display {
+  .info-chip {
     font-size: 9px;
   }
 }
@@ -321,8 +446,12 @@ body {
   background: #333;
   padding: 20px;
   border-radius: 10px;
-  width: 400px;
+  width: 92vw;
+  max-width: 520px;
   text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 12px;
 }
 
 #character-list {
@@ -388,14 +517,27 @@ body {
   background: #333;
   padding: 20px;
   border-radius: 10px;
-  width: 600px;
+  width: 92vw;
+  max-width: 620px;
   text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 12px;
 }
 
 #realm-options {
   display: flex;
-  justify-content: space-around;
-  margin-top: 20px;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (min-width: 769px) {
+  #realm-options {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 0;
+  }
 }
 
 .realm-option {
@@ -403,8 +545,9 @@ body {
   padding: 20px;
   border-radius: 10px;
   cursor: pointer;
-  width: 150px;
+  width: 100%;
   transition: background 0.3s;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
 }
 
 .realm-option:hover {
@@ -420,6 +563,12 @@ body {
   margin: 0;
   color: #ccc;
   font-size: 14px;
+}
+
+@media (min-width: 769px) {
+  .realm-option {
+    width: 32%;
+  }
 }
 
 /* ============================================
@@ -808,21 +957,46 @@ body {
   text-align: center;
 }
 
-#inventory-btn {
-  position: absolute;
-  top: 50px;
-  right: 10px;
+#inventory-btn, #settings-btn {
+  position: relative;
+  width: 58px;
+  height: 58px;
   z-index: 1000;
-  background: #333;
-  color: #fff;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
+  background: linear-gradient(135deg, rgba(37, 37, 48, 0.92), rgba(26, 26, 36, 0.92));
+  color: transparent;
+  border: 2px solid var(--regnum-border);
+  padding: 0;
+  border-radius: 12px;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  background-size: 80%;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+  font-size: 0;
 }
 
-#inventory-btn:hover {
-  background: #555;
+#inventory-btn {
+  background-image: url("https://cor-forum.de/regnum/datengrab/res/TEXTURE/75848-Gui2011%20button%20inventary.png");
+}
+
+#settings-btn {
+  background-image: url("https://cor-forum.de/regnum/datengrab/res/TEXTURE/75853-Gui2011%20button%20options%20select.png");
+}
+
+#inventory-btn:hover, #settings-btn:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+  transform: translateY(-1px);
+}
+
+#inventory-btn:active, #settings-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+#inventory-btn:focus-visible, #settings-btn:focus-visible {
+  outline: 2px solid var(--regnum-gold);
+  outline-offset: 2px;
 }
 
 /* Admin Panel Styles */
@@ -1827,7 +2001,7 @@ button {
    ============================================ */
 
 @media (max-width: 768px) {
-  #inventory-btn {
+  #inventory-btn, #settings-btn {
     display: none !important;
   }
 }
@@ -1849,14 +2023,10 @@ button {
    ============================================ */
 
 @supports (padding-top: env(safe-area-inset-top)) {
-  #character-info {
-    top: calc(10px + env(safe-area-inset-top));
-    left: calc(10px + env(safe-area-inset-left));
-  }
-
-  #login-btn {
-    top: calc(10px + env(safe-area-inset-top));
-    right: calc(10px + env(safe-area-inset-right));
+  #hud-layer {
+    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-left: calc(10px + env(safe-area-inset-left));
+    padding-right: calc(10px + env(safe-area-inset-right));
   }
 
   #mobile-controls {

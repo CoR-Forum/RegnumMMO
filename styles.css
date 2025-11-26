@@ -71,6 +71,7 @@ body {
   justify-content: flex-end;
   gap: 8px;
   pointer-events: auto;
+  flex-wrap: wrap;
 }
 
 .hud-actions button {
@@ -957,7 +958,7 @@ body {
   text-align: center;
 }
 
-#inventory-btn, #settings-btn {
+#inventory-btn, #settings-btn, #interact-btn {
   position: relative;
   width: 58px;
   height: 58px;
@@ -984,19 +985,39 @@ body {
   background-image: url("https://cor-forum.de/regnum/datengrab/res/TEXTURE/75853-Gui2011%20button%20options%20select.png");
 }
 
-#inventory-btn:hover, #settings-btn:hover {
+#interact-btn {
+  font-size: 22px;
+  color: var(--regnum-gold);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  background-size: 0;
+}
+
+#inventory-btn:hover, #settings-btn:hover, #interact-btn:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
   transform: translateY(-1px);
 }
 
-#inventory-btn:active, #settings-btn:active {
+#inventory-btn:active, #settings-btn:active, #interact-btn:active {
   transform: translateY(0);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
-#inventory-btn:focus-visible, #settings-btn:focus-visible {
+#inventory-btn:focus-visible, #settings-btn:focus-visible, #interact-btn:focus-visible {
   outline: 2px solid var(--regnum-gold);
   outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  #inventory-btn, #settings-btn, #interact-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    background-size: 78%;
+  }
+
+  .hud-actions {
+    gap: 6px;
+  }
 }
 
 /* Admin Panel Styles */
@@ -1549,13 +1570,7 @@ body {
 }
 
 #action-buttons {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  pointer-events: auto;
+  display: none !important;
 }
 
 .action-btn {
@@ -1993,16 +2008,6 @@ button {
   .tab-button {
     min-width: 44px;
     padding: 10px;
-  }
-}
-
-/* ============================================
-   INVENTORY BUTTON MOBILE
-   ============================================ */
-
-@media (max-width: 768px) {
-  #inventory-btn, #settings-btn {
-    display: none !important;
   }
 }
 

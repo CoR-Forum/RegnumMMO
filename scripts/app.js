@@ -373,6 +373,7 @@ class RegnumMap {
     this.inventoryTabs = document.getElementById('inventory-tabs');
     this.inventoryItems = document.getElementById('inventory-items');
     this.inventoryBtn = document.getElementById('inventory-btn');
+    this.interactBtn = document.getElementById('interact-btn');
     this.currentInventoryTab = 1; // Default to tab 1
 
     this.modalManager.register('inventory', {
@@ -383,6 +384,7 @@ class RegnumMap {
     });
 
     if (this.inventoryBtn) this.inventoryBtn.addEventListener('click', () => this.showInventoryModal());
+    if (this.interactBtn) this.interactBtn.addEventListener('click', () => this.interactWithNearestNPC());
 
     // NPC Interaction Modal
     this.npcModal = document.getElementById('npc-modal');
@@ -1435,6 +1437,12 @@ class RegnumMap {
   hideInventoryModal() {
     this.playSound('close');
     this.modalManager.hide('inventory');
+  }
+
+  interactWithNearestNPC() {
+    if (this.socket) {
+      this.socket.emit('interactNearest');
+    }
   }
 
   // NPC Modal Methods
